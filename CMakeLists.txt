@@ -4,6 +4,7 @@ project(my_project)
 find_package(raylib 3.0 REQUIRED) # Requires at least version 3.0
 
 set(CMAKE_C_STANDARD 11) # Requires C11 standard
+set(CMAKE_CXX_STANDARD 17)
 
 include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
 file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp")
