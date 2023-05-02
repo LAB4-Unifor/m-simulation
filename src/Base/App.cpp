@@ -3,7 +3,7 @@
 
 void App::Setup()
 {
-    InitWindow(800, 450, "Test window");
+    InitWindow(800, 450, "Yuki");
     SetTargetFPS(60);
 }
 

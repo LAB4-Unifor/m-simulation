@@ -1,17 +1,19 @@
 cmake_minimum_required(VERSION 3.15)
-project(my_project)
+project(yuki)
 
-find_package(raylib 3.0 REQUIRED) # Requires at least version 3.0
+find_package(raylib 4.0 REQUIRED) # Requires at least version 4.0
+find_package(Boost 1.82)
 
 set(CMAKE_C_STANDARD 11) # Requires C11 standard
 set(CMAKE_CXX_STANDARD 17)
 
 include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
+include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
 file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp")
 
-add_executable(${PROJECT_NAME} ${SIM_SRC})
+add_executable(${PROJECT_NAME} ${SIM_SRC} extern/raygui/raygui.h)
 
-target_link_libraries(${PROJECT_NAME} raylib)
+target_link_libraries(${PROJECT_NAME} raylib  ${Boost_LIBRARIES} -pthread)
 
 # Checks if OSX and links appropriate frameworks (only required on MacOS)
 if (APPLE)
