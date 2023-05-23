@@ -8,30 +8,17 @@ include(ExternalProject)
 
 if(UNIX)
     if(raylib AND Boost)
-
-        #Set folder for download
-        set(EXTERNAL_INSTALL_LOCATION ${PROJECT_SOURCE_DIR}/extern/)
-
-        #raylib
-        ExternalProject_Add(raylib
-        GIT_REPOSITORY    https://github.com/raysan5/raylib.git
-        GIT_TAG main
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
-
-        #raygui
-        ExternalProject_Add(raygui
-        GIT_REPOSITORY    https://github.com/raysan5/raygui.git
-        GIT_TAG main
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
-
-        set(raylib_BINARY_DIR "${CMAKE_BINARY_DIR}/raylib-prefix/src/raylib-build")
-        set(rayib_SOURCE_DIR "${CMAKE_BINARY_DIR}/raylib-prefix/src/raylib/include")
-
-        add_dependencies(raylib raylib-build)
+        #TODO:Get raylib and raygui by fetch
+        include(raylib)
+        FetchContent_Declare(
+        raylib
+        GIT_REPOSITORY https://github.com/raysan5/raylib.git
+        )
 
         #boost from conan
-        include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-        conan_basic_setup()
+        find_package(Boost)
+
+        FetchContent_MakeAvailable(raylib)
 
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
@@ -40,7 +27,7 @@ if(UNIX)
         
         add_executable(${PROJECT_NAME} ${SIM_SRC})
         
-        target_link_libraries(${PROJECT_NAME} raylib ${CONAN_LIBS} -pthread -fpic -lm -ldl -lrt)
+        target_link_libraries(${PROJECT_NAME} raylib ${Boost_LIBRARIES} -pthread -fpic -lm -ldl -lrt)
 
     else()
 
@@ -54,26 +41,16 @@ if(UNIX)
 
     endif()
 else()
-    if(raylib AND Boost)
+    if(NOT raylib AND NOT Boost)
 
-        #Set folder for download
-        set(EXTERNAL_INSTALL_LOCATION ${PROJECT_SOURCE_DIR}/extern)
+        #TODO:Get raylib and raygui by fetch
+        include(raylib)
+        FetchContent_Declare(
+        raylib
+        GIT_REPOSITORY https://github.com/raysan5/raylib.git
+        )
 
-        #raylib
-        ExternalProject_Add(raylib
-        GIT_REPOSITORY    https://github.com/raysan5/raylib.git
-        GIT_TAG main
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
-
-        #raygui
-        ExternalProject_Add(raylib
-        GIT_REPOSITORY    https://github.com/raysan5/raygui.git
-        GIT_TAG main
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
-
-        #conan for boost
-        include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-        conan_basic_setup()
+        FetchContent_MakeAvailable(raylib)
 
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
@@ -82,7 +59,7 @@ else()
         
         add_executable(${PROJECT_NAME} ${SIM_SRC})
         
-        target_link_libraries(${PROJECT_NAME} raylib ${CONAN_LIBS})
+        target_link_libraries(${PROJECT_NAME} raylib ${Boost_LIBRARIES})
     endif()
 endif()
 

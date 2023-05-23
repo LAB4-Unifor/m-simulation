@@ -1,0 +1,9 @@
+{
+    "version": 4,
+    "vendor": {
+        "conan": {}
+    },
+    "include": [
+        "/home/gustavo/Documents/C++/m-simulation/build/CMakePresets.json"
+    ]
+}
