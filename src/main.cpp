@@ -1,10 +1,10 @@
 #include <iostream>
 #include <raylib.h>
-
-
 #include <boost/asio.hpp>
 #include <Base/App.hpp>
+#define RAYGUI_IMPLEMENTATION
 #include <TelaSerialMotor/TelaSerialMotor.hpp>
+
 
 /*Serial example
   // create an asio io_service object

@@ -1,8 +1,7 @@
 #pragma once
 #include <Base/Tela.hpp>
 #include <boost/asio.hpp>
-#define RAYGUI_IMPLEMENTATION
-#include "../raygui.h"
+#include <raygui.h>
 
 //0b1111111111111111111111111111 = 26bit, para velocidade
 
