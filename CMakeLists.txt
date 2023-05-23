@@ -7,9 +7,7 @@ set(CMAKE_CXX_STANDARD 17) #Requires C++ 17 standard
 include(ExternalProject)
 
 if(UNIX)
-
-
-    if(NOT EXISTS raylib AND Boost)
+    if(raylib AND Boost)
 
         #Set folder for download
         set(EXTERNAL_INSTALL_LOCATION ${PROJECT_SOURCE_DIR}/extern/)
@@ -49,7 +47,7 @@ if(UNIX)
 
     endif()
 else()
-    if(NOT EXISTS raylib AND Boost)
+    if(raylib AND Boost)
 
         #Set folder for download
         set(EXTERNAL_INSTALL_LOCATION ${PROJECT_SOURCE_DIR}/extern)

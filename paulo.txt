@@ -1,0 +1,199 @@
+BINARY CATALOGUE
+
+Motor 1- 10000000000000000000000000000000
+Motor 2- 01000000000000000000000000000000
+Motor 3- 00100000000000000000000000000000
+Motor 4- 00010000000000000000000000000000
+Motor 5- 10010000000000000000000000000000
+Motor 6- 01010000000000000000000000000000
+
+Break - 0000 1 / 0  || [ 1 para ligado, 0 para desligado ]
+
+Reverse - 0000 0 1 / 0 || [ 1 para ligado, 0 para desligado ]
+
+SPD(Velocidade dos motores) - 0000 0 0 11111111111111111111111111 || [ Caso SPD = 0, break = 1 ]
+
+
+a = 0000
+b = 0
+c = 0
+d = 00000000000000000000000000
+
+cout << "a | b | c | d = " << (a | b | c | d) << endl;
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+#include <iostream>
+#include <boost/asio.hpp>
+
+int main() {
+    boost::asio::io_service ioService;
+    boost::asio::serial_port serialPort(ioService);
+
+    try {
+        serialPort.open("/dev/ttyUSB0");  // Especifique a porta USB correta
+
+        serialPort.set_option(boost::asio::serial_port_base::baud_rate(9600));
+        serialPort.set_option(boost::asio::serial_port_base::character_size(8));
+        serialPort.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+        serialPort.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+        serialPort.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+        // Enviar binário para o ESP32
+        std::string codigo = "01011100000000000000000000000000";  // Exemplo de binário a ser enviado
+        std::cout << "Enviando binario para o ESP32: " << codigo << std::endl;
+        boost::asio::write(serialPort, boost::asio::buffer(codigo));
+
+        // Receber resposta do ESP32
+        char resposta[128];
+        size_t bytesRead = boost::asio::read(serialPort, boost::asio::buffer(resposta, sizeof(resposta)));
+
+        // Verificar se o código está correto
+        std::string respostaStr(resposta, bytesRead);
+        if (respostaStr == "CORRETO") {
+            std::cout << "Codigo correto recebido do ESP32: " << respostaStr << std::endl;
+
+            // Confirmar e enviar para o ESP32
+            std::string confirmacao = "CONFIRMADO";
+            std::cout << "Enviando confirmacao para o ESP32: " << confirmacao << std::endl;
+            boost::asio::write(serialPort, boost::asio::buffer(confirmacao));
+        } else {
+            std::cout << "Codigo incorreto recebido do ESP32: " << respostaStr << std::endl;
+        }
+    } catch (const boost::system::system_error& error) {
+        std::cerr << "Erro: " << error.what() << std::endl;
+    }
+
+    return 0;
+}
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#include <iostream>
+#include <bitset>
+#include <iostream>
+#include <boost/asio.hpp>
+
+int main() {
+    boost::asio::io_service ioService;
+    boost::asio::serial_port serialPort(ioService);
+
+    try {
+        serialPort.open("/dev/ttyUSB0");  // Especifique a porta USB correta
+
+        serialPort.set_option(boost::asio::serial_port_base::baud_rate(9600));
+        serialPort.set_option(boost::asio::serial_port_base::character_size(8));
+        serialPort.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+        serialPort.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+        serialPort.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+        // Enviar binário para o ESP32
+        uint32_t entrada;
+        std::cout << "Digite o número de entrada: ";
+        std::cin >> entrada;
+    
+        // Máscaras para os primeiros quatro bits, quinto bit e sexto bit
+        uint32_t mascara4Bits = 0xF0000000;
+        uint32_t mascara5Bit = 0x08000000;
+        uint32_t mascara6Bit = 0x04000000;
+    
+        // Sequências de bits dos motores
+        uint32_t motor1 = 0x80000000;
+        uint32_t motor2 = 0x40000000;
+        uint32_t motor3 = 0x20000000;
+        uint32_t motor4 = 0x10000000;
+        uint32_t motor5 = 0x90000000;
+        uint32_t motor6 = 0x50000000;
+    
+        // Variáveis para armazenar os estados do Break e Reverse
+        bool breakLigado = false;
+        bool reverseLigado = false;
+    
+        
+        // Verificação do quinto bit (Reverse)
+        if (entrada & mascara5Bit) {
+            reverseLigado = true;
+        } else {
+            
+        }
+    
+        // Verificação do sexto bit (Break)
+        if (entrada & mascara6Bit) {
+            breakLigado = true;
+        } else {
+            
+        }
+    
+        std::cout << std::endl;
+    
+        // Mostrar status final
+        std::cout << "Status final:" << std::endl;
+        std::cout << "Motor: ";
+        if ((entrada & mascara4Bits) == motor1) {
+            std::cout << "1";
+        } else if ((entrada & mascara4Bits) == motor2) {
+            std::cout << "2";
+        } else if ((entrada & mascara4Bits) == motor3) {
+            std::cout << "3";
+        } else if ((entrada & mascara4Bits) == motor4) {
+            std::cout << "4";
+        } else if ((entrada & mascara4Bits) == motor5) {
+            std::cout << "5";
+        } else if ((entrada & mascara4Bits) == motor6) {
+            std::cout << "6";
+        } else {
+            std::cout << "Nenhum motor utilizado";
+        }
+        std::cout << std::endl;
+    
+        std::cout << "Break: ";
+        if (breakLigado) {
+            std::cout << "ligado";
+        } else {
+            std::cout << "desligado";
+        }
+        std::cout << std::endl;
+    
+        std::cout << "Reverse: ";
+        if (reverseLigado) {
+            std::cout << "ligado";
+        } else {
+            std::cout << "desligado";
+        }
+        std::cout << std::endl;
+
+        std::bitset<32> bin(entrada);
+    	std::cout << entrada << " in Binary is: " << bin << std::endl;
+    	
+
+        std::cout << "Enviando binario para o ESP32: " << entrada << std::endl;
+        boost::asio::write(serialPort, boost::asio::buffer(entrada));
+        
+        serialPort.write_something(saida);
+
+        // Receber resposta do ESP32
+        char resposta[128];
+        size_t bytesRead = boost::asio::read(serialPort, boost::asio::buffer(resposta, sizeof(resposta)));
+
+        // Verificar se o código está correto
+        std::string respostaStr(resposta, bytesRead);
+        if (respostaStr == "CORRETO") {
+            std::cout << "Codigo correto recebido do ESP32: " << respostaStr << std::endl;
+
+            // Confirmar e enviar para o ESP32
+            std::string confirmacao = "CONFIRMADO";
+            std::cout << "Enviando confirmacao para o ESP32: " << confirmacao << std::endl;
+            boost::asio::write(serialPort, boost::asio::buffer(confirmacao));
+        } else {
+            std::cout << "Codigo incorreto recebido do ESP32: " << respostaStr << std::endl;
+        }
+    } catch (const boost::system::system_error& error) {
+        std::cerr << "Erro: " << error.what() << std::endl;
+    }
+
+    return 0;
+}
+
+
+https://www.portaleletricista.com.br/motor-eletrico/

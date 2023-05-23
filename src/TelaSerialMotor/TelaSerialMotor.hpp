@@ -5,6 +5,11 @@
 
 //0b1111111111111111111111111111 = 26bit, para velocidade
 
+struct Controle
+{
+    
+};
+
 class TelaSerialMotor : public Tela
 {
     public:
