@@ -3,3 +3,4 @@ release
 build
 *.kdev4
 .vscode
+.cache
