@@ -8,7 +8,7 @@ include(FetchContent)
 
 if(UNIX)
     if(NOT raylib AND NOT Boost)
-        #TODO:Get raylib and raygui by fetch
+        #TODO:Get  raygui by fetch
         FetchContent_Declare(
         raylib
         GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -42,7 +42,7 @@ if(UNIX)
 else()
     if(NOT raylib AND NOT Boost)
 
-        #TODO:Get raylib and raygui by fetch
+        #TODO:Get raygui by fetch
         FetchContent_Declare(
         raylib
         GIT_REPOSITORY https://github.com/raysan5/raylib.git
