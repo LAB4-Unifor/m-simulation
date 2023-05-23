@@ -15,12 +15,19 @@ if(UNIX)
         #raylib
         ExternalProject_Add(raylib
         GIT_REPOSITORY    https://github.com/raysan5/raylib.git
+        GIT_TAG main
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
 
         #raygui
         ExternalProject_Add(raygui
         GIT_REPOSITORY    https://github.com/raysan5/raygui.git
+        GIT_TAG main
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
+
+        set(raylib_BINARY_DIR "${CMAKE_BINARY_DIR}/raylib-prefix/src/raylib-build")
+        set(rayib_SOURCE_DIR "${CMAKE_BINARY_DIR}/raylib-prefix/src/raylib/include")
+
+        add_dependencies(raylib raylib-build)
 
         #boost from conan
         include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
@@ -55,11 +62,13 @@ else()
         #raylib
         ExternalProject_Add(raylib
         GIT_REPOSITORY    https://github.com/raysan5/raylib.git
+        GIT_TAG main
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
 
         #raygui
         ExternalProject_Add(raylib
         GIT_REPOSITORY    https://github.com/raysan5/raygui.git
+        GIT_TAG main
         CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION})
 
         #conan for boost
