@@ -22,6 +22,60 @@ d = 00000000000000000000000000
 cout << "a | b | c | d = " << (a | b | c | d) << endl;
 
 
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+// Teste para as portas com o esp32 
+
+int main() {
+    boost::asio::io_service ioService;
+    boost::asio::serial_port serialPort(ioService);
+
+    try {
+        // Listar todas as portas disponíveis
+        boost::asio::serial_port_base::baud_rate baudRate(9600);
+        boost::system::error_code ec;
+        std::vector<std::string> portasDisponiveis = serialPort.available_ports(ec);
+
+        if (ec) {
+            std::cerr << "Erro ao obter as portas disponíveis: " << ec.message() << std::endl;
+            return 1;
+        }
+
+        if (portasDisponiveis.empty()) {
+            std::cout << "Nenhuma porta disponível encontrada." << std::endl;
+            return 0;
+        }
+
+        std::cout << "Portas disponíveis:" << std::endl;
+        for (const std::string& porta : portasDisponiveis) {
+            std::cout << porta << std::endl;
+        }
+
+        // Solicitar ao usuário a seleção da porta
+        std::cout << "Digite o nome da porta USB para o ESP32: ";
+        std::string portaSelecionada;
+        std::cin >> portaSelecionada;
+
+        // Abrir a porta selecionada
+        serialPort.open(portaSelecionada, ec);
+        if (ec) {
+            std::cerr << "Erro ao abrir a porta USB: " << ec.message() << std::endl;
+            return 1;
+        }
+
+        serialPort.set_option(boost::asio::serial_port_base::baud_rate(baudRate));
+        serialPort.set_option(boost::asio::serial_port_base::character_size(8));
+        serialPort.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
+        serialPort.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
+        serialPort.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
+
+    } catch (const boost::system::system_error& error) {
+        std::cerr << "Erro: " << error.what() << std::endl;
+        return 1;
+    }
+
+    return 0;
+}
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 #include <iostream>
