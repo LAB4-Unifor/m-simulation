@@ -6,3 +6,4 @@ build
 .cache
 extern
 CMakePresets.json
+CMakeUserPresets.json
