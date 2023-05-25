@@ -8,12 +8,16 @@ class App
 {
     public:
         App(int wWidth, int wHeight, std::string wName, Tela *tela);
-        
+    
         //Loop
         void Run();
+
+       
+
+        CoordenadorTelas coordenador;
         
     private:
-        CoordenadorTelas coordenador;
+        
         
         void Setup(int wWidth, int wHeight, std::string wName);
 };

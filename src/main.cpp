@@ -49,7 +49,7 @@
 
 int main() 
 {
-    App app(980, 720, "Yuki", new TelaSerialMotor());
+    App app(980, 720, "Yuki", new TelaSerialMotor(&app.coordenador));
     app.Run();
 
     return 0;

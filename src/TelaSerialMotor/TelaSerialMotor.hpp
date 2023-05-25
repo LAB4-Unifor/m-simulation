@@ -13,6 +13,7 @@ struct Controle
 class TelaSerialMotor : public Tela
 {
     public:
+        TelaSerialMotor(CoordenadorTelas *coord) {this->m_coord = coord;}
         void Init() override;
         void HandleInput() override;
         void Update() override;
@@ -25,4 +26,7 @@ class TelaSerialMotor : public Tela
         void OnEnter() override;
         
         void CleanUp() override;
+    
+    private:
+        CoordenadorTelas *m_coord = nullptr;
 };
