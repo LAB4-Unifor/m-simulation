@@ -19,6 +19,8 @@ if(UNIX)
 
         FetchContent_MakeAvailable(raylib)
 
+        execute_process(COMMAND git clone https://github.com/raysan5/raygui.git extern)
+
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
         file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" 
@@ -29,7 +31,6 @@ if(UNIX)
         target_link_libraries(${PROJECT_NAME} raylib ${Boost_LIBRARIES} -pthread -fpic -lm -ldl -lrt)
 
     else()
-
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
         file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/src/*.h")
@@ -49,6 +50,10 @@ else()
         )
 
         FetchContent_MakeAvailable(raylib)
+
+        find_package(Boost)
+
+        execute_process(COMMAND git clone https://github.com/raysan5/raygui.git extern)
 
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)

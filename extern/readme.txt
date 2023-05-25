@@ -1,1 +1,0 @@
-External libs directory
