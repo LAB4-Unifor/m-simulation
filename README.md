@@ -3,18 +3,29 @@
 
 ## Preparação do Ambiente
 
-### Instalações:
-- Instale o Raylib 
-- Instale o Boost
-- Instale o package manager de c++ conan
+### Requisitos
+- CMake()
+- Conan
 
-### Build
-  1. Crie bla bla
+### Build Linux
+  1. Crie uma pasta para a build:
+
   `mkdir build`
-  2. Outra explicação bla bla
+
+  2. Instale as bibliotecas necessarias do conan:
+
   `conan install . --output-folder=build --build=missing`
-  3. `cd build`
+
+  3.Entre na paste da build:
+
+  `cd build`
   
-  5. `cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release`
+  5. Confugure o projeto com CMake:
+
+  `cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release`
   
-  6. `cmake --build .`
+  6. Compile o projeto:
+
+  `cmake --build .`
+
+### Build Windows
