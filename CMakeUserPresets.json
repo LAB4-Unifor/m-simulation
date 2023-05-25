@@ -4,6 +4,6 @@
         "conan": {}
     },
     "include": [
-        "/home/gustavo/Documents/C++/m-simulation/build/CMakePresets.json"
+        "C:\\Users\\gusta\\Documents\\Repositories\\m-simulation\\build\\CMakePresets.json"
     ]
 }
