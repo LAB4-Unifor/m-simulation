@@ -3,9 +3,11 @@
 
 ## Preparação do Ambiente
 
+### Requisitos
+- Baixar CMake (https://cmake.org/download/)
+- Baixar Conan (https://conan.io/)
+
 ### Instalações:
-- Instale o Raylib 
-- Instale o Boost
 - Instale o package manager de c++ conan
 
 ### Build
