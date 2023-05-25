@@ -1,8 +1,8 @@
 #include <iostream>
 #include <raylib.h>
-#include <boost/asio.hpp>
 #include <Base/App.hpp>
-#define RAYGUI_IMPLEMENTATION
+
+#define RAYGUI_IMPLEMENTATION//Definitions for UI
 #include <TelaSerialMotor/TelaSerialMotor.hpp>
 
 

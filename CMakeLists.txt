@@ -8,7 +8,6 @@ include(FetchContent)
 
 if(UNIX)
     if(NOT raylib AND NOT Boost)
-        #TODO:Get  raygui by fetch
         FetchContent_Declare(
         raylib
         GIT_REPOSITORY https://github.com/raysan5/raylib.git
@@ -19,12 +18,12 @@ if(UNIX)
 
         FetchContent_MakeAvailable(raylib)
 
-        execute_process(COMMAND git clone https://github.com/raysan5/raygui.git extern)
+        execute_process(COMMAND git clone https://github.com/raysan5/raygui.git extern/raygui)
 
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
-        include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
+        include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/src/)
         file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" 
-        "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/extern/raygui/src/*.h")
+        "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/build/extern/raygui/src/*.h")
         
         add_executable(${PROJECT_NAME} ${SIM_SRC})
         
@@ -33,7 +32,8 @@ if(UNIX)
     else()
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
-        file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/src/*.h")
+        file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" "${PROJECT_SOURCE_DIR}/src/*.hpp" 
+        "${PROJECT_SOURCE_DIR}/extern/raygui/*.h")
         
         add_executable(${PROJECT_NAME} ${SIM_SRC})
         
@@ -53,12 +53,12 @@ else()
 
         find_package(Boost)
 
-        execute_process(COMMAND git clone https://github.com/raysan5/raygui.git extern)
+        execute_process(COMMAND git clone https://github.com/raysan5/raygui.git extern/raygui)
 
         include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/src/)
-        include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/)
+        include_directories(${PROJECT_NAME} ${PROJECT_SOURCE_DIR}/extern/src/)
         file(GLOB_RECURSE SIM_SRC "${PROJECT_SOURCE_DIR}/src/*.cpp" 
-        "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/extern/raygui/src/*.h")
+        "${PROJECT_SOURCE_DIR}/src/*.hpp" "${PROJECT_SOURCE_DIR}/build/extern/raygui/src/*.h")
         
         add_executable(${PROJECT_NAME} ${SIM_SRC})
         

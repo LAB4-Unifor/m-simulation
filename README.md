@@ -20,7 +20,7 @@
 
   `cd build`
   
-  5. Confugure o projeto com CMake:
+  5. Configure o projeto com CMake:
 
   `cmake .. -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_BUILD_TYPE=Release`
   
