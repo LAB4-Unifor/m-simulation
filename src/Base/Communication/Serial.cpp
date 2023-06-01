@@ -1,14 +1,30 @@
 #include "Serial.hpp"
 
-#ifndef __linux__
-std::vector<std::string>  Serial::CheckPorts()
+void Serial::WriteData(uint32_t data)
 {
-    std::vector<std::string> port_List;
-    boost::filesystem::path path("/dev/tty");//Set path as string
-
-    return port_List;
+    boost::asio::write(m_serialPort, boost::asio::buffer(&data, 4));
 }
-#endif
+
+std::string Serial::ReceiveData()
+{
+    std::string s;
+    char c;
+    for(;;)
+    {
+        boost::asio::read(m_serialPort, boost::asio::buffer(&c, 1));
+
+        switch(c)
+        {
+            case '\r':
+                break;
+            case '\n':
+                return s;
+            default:
+                s += c;
+        }
+    }
+}
+
 
 #ifdef _WIN32
 std::vector<std::string>  Serial::CheckPorts()

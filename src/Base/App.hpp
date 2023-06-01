@@ -7,12 +7,10 @@
 class App
 {
     public:
-        App(int wWidth, int wHeight, std::string wName, Tela *tela);
+        App(int wWidth, int wHeight, std::string wName);
     
         //Loop
-        void Run();
-
-       
+        void Run(Tela *tela);
 
         CoordenadorTelas coordenador;
         

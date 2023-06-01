@@ -41,6 +41,7 @@ void CoordenadorTelas::Update()
 void CoordenadorTelas::Draw()
 {
     BeginDrawing();
+    ClearBackground(RAYWHITE);
     PeekTela()->Draw();
     EndDrawing();
 }

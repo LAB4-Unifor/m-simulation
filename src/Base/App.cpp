@@ -1,10 +1,10 @@
 #include "App.hpp"
 #include <raylib.h>
 
-App::App(int wWidth, int wHeight, std::string wName, Tela *tela)
+App::App(int wWidth, int wHeight, std::string wName)
 {
     Setup(wWidth, wHeight, wName);
-    coordenador.ChangeTela(tela);
+    
 }
 
 void App::Setup(int wWidth, int wHeight, std::string wName)
@@ -13,8 +13,9 @@ void App::Setup(int wWidth, int wHeight, std::string wName)
     SetTargetFPS(60);
 }
 
-void App::Run()
+void App::Run(Tela *tela)
 {
+    coordenador.ChangeTela(tela);
     while(coordenador.ShouldQuit() == false)
     {
         coordenador.m_shouldQuit = WindowShouldClose();

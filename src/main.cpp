@@ -1,12 +1,17 @@
 #include <iostream>
 #include <raylib.h>
 #include <Base/App.hpp>
+#include <Base/Communication/Serial.hpp>
 
 #define RAYGUI_IMPLEMENTATION//Definitions for UI
-#include <TelaSerialMotor/TelaSerialMotor.hpp>
+//#include <TelaSerialMotor/TelaSerialMotor.hpp>
+#include <TelaGamePad/TelaGamePad.hpp>
 
 
-/*Serial example
+//Serial example
+/*
+int main()
+{
   // create an asio io_service object
   boost::asio::io_service io_service;
 
@@ -24,15 +29,19 @@
   serial_port.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
 
   // create a buffer to store the received data
-  char buffer[1024];
+  char buffer[sizeof(uint32_t)];
 
   // read data from the serial port
-  size_t n = boost::asio::read(serial_port, boost::asio::buffer(buffer, 1024));
+  uint32_t n = boost::asio::read(serial_port, boost::asio::buffer(buffer, sizeof(uint32_t)));
+  
+  uint32_t b = 'a';
+  uint32_t *a = &b;
+  boost::asio::write(serial_port, boost::asio::buffer(a, sizeof(uint32_t)));
 
   // convert the received data to binary
   std::string binary_data;
   for (size_t i = 0; i < n; i++) {
-    for (int j = 7; j >= 0; j--) {
+    for (int j = 31; j >= 0; j--) {
       if (buffer[i] & (1 << j)) {
         binary_data.push_back('1');
       } else {
@@ -45,12 +54,16 @@
   std::cout << "Received data in binary format: " << binary_data << std::endl;
 
   // close the serial port
-  serial_port.close();*/
+  serial_port.close();
+  
+  return 0;
+}*/
 
 int main() 
 {
-    App app(980, 720, "Yuki", new TelaSerialMotor(&app.coordenador));
-    app.Run();
-
+    //Serial serial;
+    App app(980, 720, "Yuki");
+    app.Run(new TelaGamePad());
+    
     return 0;
 }
