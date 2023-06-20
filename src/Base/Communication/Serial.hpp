@@ -18,6 +18,11 @@ class Serial
             m_serialPort.set_option(boost::asio::serial_port_base::baud_rate(115200));
         }
         
+        ~Serial()
+        {
+            m_serialPort.close();
+        }
+        
         void WriteData(uint32_t data);
         std::string ReceiveData();
         

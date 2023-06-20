@@ -28,6 +28,9 @@ struct ESPPacket
     uint32_t waveDivider = 0;
     uint32_t payload = 0;
     uint8_t selectedMotor = 5;//Ponteiro para n sair do array
+    
+    uint32_t l = 0;
+    uint32_t r  = 0;
 };
 
 struct PGamePad
@@ -86,6 +89,7 @@ private:
     uint32_t m_rTratado = 0;
     uint32_t m_frequencia = 0;
     int m_motorIdx = 0;
+    int motorIdxAntigo = 0;
     bool m_temp_start_motor = 1;
     std::string m_controllerConnectMessage = {0};
 };
