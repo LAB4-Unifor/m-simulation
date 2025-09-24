@@ -1,13 +1,11 @@
 # Mitsubishi RV-2SQ/RV-2SDB 3D Robot Simulator 
  
-//i.imgur.com/placeholder.png) 
+![Robot Simulation](https://i.imgur.com/placeholder.png)
  
 A professional 3D simulation of Mitsubishi's RV-2SQ industrial robot with full 6-DOF control, real-time performance monitoring, and industrial-grade GUI. 
  
 ## Features 
-- ✅ 6-DOF joint control with exact angular limits from robot specifications 
 - ✅ Real-time performance monitoring (FPS, frame time, draw calls) 
-- ✅ Professional GUI with color-coded status indicators 
 - ✅ Simulation mode (no physical robot required) 
 - ✅ Wireframe mode, grid reference, and skeleton visualization 
  
