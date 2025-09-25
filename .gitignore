@@ -34,3 +34,5 @@ doc
 install.log
 build
 .vscode
+.cache
+compile_commands.json
