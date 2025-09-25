@@ -1,0 +1,166 @@
+{
+    glm = {
+        installdir = "/home/alexandre/.xmake/packages/g/glm/1.0.1/1781f3ac6d8141628505a9ae557cd017",
+        sysincludedirs = "/home/alexandre/.xmake/packages/g/glm/1.0.1/1781f3ac6d8141628505a9ae557cd017/include",
+        __enabled = true,
+        version = "1.0.1",
+        license = "MIT",
+        __requirestr = "glm"
+    },
+    glew = {
+        installdir = "/home/alexandre/.xmake/packages/g/glew/2.2.0/2ac0c6940a2140f7b6506fcd8240f406",
+        __enabled = true,
+        envs = {
+            PATH = {
+                "/home/alexandre/.xmake/packages/p/pkg-config/0.29.2/a0aba256d7674c1bbee15f0ee1534e92/bin",
+                "/home/alexandre/.xmake/packages/p/pkg-config/0.29.2/a0aba256d7674c1bbee15f0ee1534e92/bin",
+                "/home/alexandre/.xmake/packages/p/python/3.13.2/7dbc4c2192884093912e9407517d19cf/bin",
+                "/home/alexandre/.xmake/packages/p/python/3.13.2/7dbc4c2192884093912e9407517d19cf/bin",
+                "/home/alexandre/.xmake/packages/p/python/3.13.2/7dbc4c2192884093912e9407517d19cf/Scripts"
+            },
+            LD_LIBRARY_PATH = {
+                "/home/alexandre/.xmake/packages/l/libx11/1.8.12/5b3492e889e848b2b511e3f3031c5538/lib"
+            },
+            PYTHONPATH = {
+                "/home/alexandre/.xmake/packages/p/python/3.13.2/7dbc4c2192884093912e9407517d19cf/lib/python3.13/site-packages"
+            }
+        },
+        sysincludedirs = "/home/alexandre/.xmake/packages/g/glew/2.2.0/2ac0c6940a2140f7b6506fcd8240f406/include",
+        static = true,
+        libfiles = {
+            "/home/alexandre/.xmake/packages/g/glew/2.2.0/2ac0c6940a2140f7b6506fcd8240f406/lib/libglew.a",
+            "/usr/lib/libX11-xcb.so",
+            "/usr/lib/libX11.so",
+            "/usr/lib/libxcb-composite.so",
+            "/usr/lib/libxcb-damage.so",
+            "/usr/lib/libxcb-dbe.so",
+            "/usr/lib/libxcb-dpms.so",
+            "/usr/lib/libxcb-dri2.so",
+            "/usr/lib/libxcb-dri3.so",
+            "/usr/lib/libxcb-glx.so",
+            "/usr/lib/libxcb-present.so",
+            "/usr/lib/libxcb-randr.so",
+            "/usr/lib/libxcb-record.so",
+            "/usr/lib/libxcb-render.so",
+            "/usr/lib/libxcb-res.so",
+            "/usr/lib/libxcb-screensaver.so",
+            "/usr/lib/libxcb-shape.so",
+            "/usr/lib/libxcb-shm.so",
+            "/usr/lib/libxcb-sync.so",
+            "/usr/lib/libxcb-xf86dri.so",
+            "/usr/lib/libxcb-xfixes.so",
+            "/usr/lib/libxcb-xinerama.so",
+            "/usr/lib/libxcb-xinput.so",
+            "/usr/lib/libxcb-xkb.so",
+            "/usr/lib/libxcb-xtest.so",
+            "/usr/lib/libxcb-xv.so",
+            "/usr/lib/libxcb-xvmc.so",
+            "/usr/lib/libxcb.so",
+            "/usr/lib/libXau.so",
+            "/usr/lib/libXdmcp.so"
+        },
+        linkdirs = "/home/alexandre/.xmake/packages/g/glew/2.2.0/2ac0c6940a2140f7b6506fcd8240f406/lib",
+        links = {
+            "glew",
+            "X11-xcb",
+            "xcb",
+            "X11",
+            "xcb-composite",
+            "xcb-damage",
+            "xcb-dbe",
+            "xcb-dpms",
+            "xcb-dri2",
+            "xcb-dri3",
+            "xcb-glx",
+            "xcb-present",
+            "xcb-randr",
+            "xcb-record",
+            "xcb-render",
+            "xcb-res",
+            "xcb-screensaver",
+            "xcb-shape",
+            "xcb-shm",
+            "xcb-sync",
+            "xcb-xf86dri",
+            "xcb-xfixes",
+            "xcb-xinerama",
+            "xcb-xinput",
+            "xcb-xkb",
+            "xcb-xtest",
+            "xcb-xv",
+            "xcb-xvmc",
+            "Xau",
+            "Xdmcp"
+        },
+        __requirestr = "glew",
+        defines = "GLEW_NO_GLU",
+        syslinks = "GL",
+        version = "2.2.0"
+    },
+    sdl2 = {
+        sysincludedirs = "/usr/include/SDL2",
+        libfiles = "/usr/lib/libSDL2.so",
+        shared = true,
+        links = "SDL2",
+        __requirestr = "sdl2",
+        defines = {
+            "_GNU_SOURCE=1",
+            "_REENTRANT"
+        },
+        version = "2.32.52",
+        __enabled = true
+    },
+    opengl = {
+        shared = true,
+        __enabled = true,
+        __requirestr = "opengl",
+        libfiles = "/usr/lib/libOpenGL.so",
+        version = "4.5",
+        links = "OpenGL"
+    },
+    assimp = {
+        installdir = "/home/alexandre/.xmake/packages/a/assimp/v6.0.2/286073ee6ddc428ab65174ef0fabe045",
+        __enabled = true,
+        envs = {
+            PATH = {
+                "/home/alexandre/.xmake/packages/n/ninja/v1.13.1/e7cc4735aeb048e6870171a23c4ee800/bin",
+                "/home/alexandre/.xmake/packages/c/cmake/4.0.3/b686e3b7911246e2bfa1b52ae27762fe/bin"
+            }
+        },
+        static = true,
+        __requirestr = "assimp",
+        sysincludedirs = {
+            "/home/alexandre/.xmake/packages/a/assimp/v6.0.2/286073ee6ddc428ab65174ef0fabe045/include",
+            "/usr/include/minizip"
+        },
+        libfiles = {
+            "/home/alexandre/.xmake/packages/a/assimp/v6.0.2/286073ee6ddc428ab65174ef0fabe045/lib/libassimp.a",
+            "/usr/lib/libminizip.so"
+        },
+        links = {
+            "assimp",
+            "minizip",
+            "z"
+        },
+        license = "BSD-3-Clause",
+        version = "v6.0.2",
+        linkdirs = "/home/alexandre/.xmake/packages/a/assimp/v6.0.2/286073ee6ddc428ab65174ef0fabe045/lib"
+    },
+    imgui = {
+        installdir = "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8",
+        links = "imgui",
+        license = "MIT",
+        static = true,
+        __requirestr = "imgui",
+        sysincludedirs = {
+            "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8/include",
+            "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8/include/imgui",
+            "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8/include/backends",
+            "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8/include/misc/cpp"
+        },
+        libfiles = "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8/lib/libimgui.a",
+        __enabled = true,
+        version = "v1.92.1",
+        linkdirs = "/home/alexandre/.xmake/packages/i/imgui/v1.92.1/3ed829247db04c62b786163b4c20f6c8/lib"
+    }
+}
