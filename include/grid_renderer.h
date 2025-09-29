@@ -14,7 +14,10 @@ public:
     GridRenderer();
     ~GridRenderer();
     void initialize();
-    void render(const glm::mat4& view, const glm::mat4& project)
-    void setEnabled(bool enable) { enable = enable }
+    void render(const glm::mat4& view, const glm::mat4& project);
+    void setEnabled(bool enable) 
+    { 
+        enable = enable; 
+    }
     
-}
+};
