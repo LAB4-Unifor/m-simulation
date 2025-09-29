@@ -1,7 +1,7 @@
 #include "gui_manager.h"
-#include <imgui.h>
-#include <imgui_impl_sdl2.h>
-#include <imgui_impl_opengl3.h>
+#include "SDL_video.h"
+#include <imgui/imgui.h>
+#include <imgui/imgui_impl_opengl3.h>
 #include <iostream>
 
 GuiManager::GuiManager()
@@ -35,21 +35,17 @@ void GuiManager::initialize() {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); 
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable keyboard controls
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable docking
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable multi-viewport
     
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
     
     // Setup Platform/Renderer bindings
-    ImGui_ImplSDL2_InitForOpenGL(SDL_GetCurrentWindow(), SDL_GL_GetCurrentContext());
     ImGui_ImplOpenGL3_Init("#version 430");
 }
 
 void GuiManager::render(Camera& camera, RobotArm& robot) {
     // Start the ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
     // Main window
@@ -80,11 +76,9 @@ void GuiManager::render(Camera& camera, RobotArm& robot) {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     
     // Update the ImGui state for multiple viewports
-    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+    if (ImGui::GetIO().ConfigFlags) {
         SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
         SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
         SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
     }
 }
