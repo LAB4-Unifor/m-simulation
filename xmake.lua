@@ -5,7 +5,7 @@ add_requires("glew")
 add_requires("glm")
 add_requires("assimp")
 add_requires("imgui v1.89.9-docking", {configs = {sdl2 = true, opengl3 = true}})
-add_requires("implot v0.16")  -- Try forcing a specific version or newer
+add_requires("implot v0.16")  
 
 target("robot_simulator")
     set_kind("binary")
