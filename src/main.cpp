@@ -1,10 +1,5 @@
 #include <iostream>
-<<<<<<< HEAD
-#include <raylib.h>
-#include <Base/App.hpp>
 
-#define RAYGUI_IMPLEMENTATION//Definitions for UI
-#include <TelaSerialMotor/TelaSerialMotor.hpp>
 
 
 /*Serial example
@@ -48,12 +43,7 @@
   // close the serial port
   serial_port.close();*/
 
-int main() 
-{
-    App app(980, 720, "Yuki", new TelaSerialMotor(&app.coordenador));
-    app.Run();
 
-=======
 #include <SDL.h>
 #include <GL/glew.h>
 #include <SDL_opengl.h>
@@ -274,6 +264,5 @@ int main(int argc, char* argv[]) {
     robotComm.disconnect();
     renderer.cleanup();
     
->>>>>>> master
     return 0;
 }
