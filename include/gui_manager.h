@@ -45,6 +45,16 @@ public:
     float getAmbientStrength() const { return ambient_strength; }
     float getSpecularStrength() const { return specular_strength; }
     float getPointSize() const { return point_size; }
+
+    // Public setters for communication and logging parameters
+    void setServerAddress(const char* address) { strncpy(serverAddress, address, sizeof(serverAddress) - 1); serverAddress[sizeof(serverAddress) - 1] = '\0'; }
+    void setServerPort(int port) { serverPort = port; }
+    void setLogFilename(const char* filename) { strncpy(logFilename, filename, sizeof(logFilename) - 1); logFilename[sizeof(logFilename) - 1] = '\0'; }
+
+    // Public getters for communication and logging parameters
+    const char* getServerAddress() const { return serverAddress; }
+    int getServerPort() const { return serverPort; }
+    const char* getLogFilename() const { return logFilename; }
     
 private:
     bool background_enabled;
