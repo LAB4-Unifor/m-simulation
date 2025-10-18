@@ -132,16 +132,18 @@ int main(int argc, char* argv[]) {
                 inputHandler.handleEvent(e, camera);
                 
                 if (e.type == SDL_KEYDOWN) {
-                switch (e.key.keysym.sym) {
-                case SDLK_c:
-                    if (robotComm.isConnected()) {
-                        robotComm.disconnect();
-                    } else {
-                        robotComm.connect(guiManager.getServerAddress(), guiManager.getServerPort());
+                    switch (e.key.keysym.sym) {
+                        case SDLK_c:
+                            if (robotComm.isConnected()) {
+                                robotComm.disconnect();
+                            } else {
+                                robotComm.connect(guiManager.getServerAddress(), guiManager.getServerPort());
+                            }
+                            break;
                     }
-                break;
+                }
             }
-        }
+        } // End of SDL_PollEvent while loop
         
         inputHandler.update(deltaTime, camera);
         camera.update(deltaTime);
@@ -216,4 +218,4 @@ int main(int argc, char* argv[]) {
     
     return 0;
 }
-}
+
