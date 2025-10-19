@@ -74,28 +74,32 @@ void PerformanceMonitor::renderGUI() {
         ImGui::Text("Triangles: %d", trianglesRendered);
         
         ImGui::Separator();
+        
+        // FPS History Plot - with proper BeginPlot/EndPlot checking
         ImGui::Text("FPS History");
-        ImPlot::BeginPlot("##FPS History", ImVec2(-1, 80));
-        ImPlot::PlotLine("FPS", fpsHistory.data(), fpsHistory.size());
-        ImPlot::EndPlot();
-        
-        ImGui::Text("Frame Time History");
-        ImPlot::BeginPlot("##Frame Time History", ImVec2(-1, 80));
-        ImPlot::PlotLine("ms", frameTimeHistory.data(), frameTimeHistory.size());
-        ImPlot::EndPlot();
-        
-        ImGui::Text("Memory History");
-        ImPlot::BeginPlot("##Memory History", ImVec2(-1, 80));
-        
-        // Replace the lambda version with a precomputed array
-        static std::vector<float> memoryHistoryMB;
-        memoryHistoryMB.resize(memoryHistory.size());
-        for (size_t i = 0; i < memoryHistory.size(); ++i) {
-            memoryHistoryMB[i] = memoryHistory[i] / (1024.0f * 1024.0f);
+        if (ImPlot::BeginPlot("##FPS History", ImVec2(-1, 80))) {
+            ImPlot::PlotLine("FPS", fpsHistory.data(), fpsHistory.size());
+            ImPlot::EndPlot();
         }
-        ImPlot::PlotLine("MB", memoryHistoryMB.data(), memoryHistoryMB.size());
         
-        ImPlot::EndPlot();
+        // Frame Time History Plot
+        ImGui::Text("Frame Time History");
+        if (ImPlot::BeginPlot("##Frame Time History", ImVec2(-1, 80))) {
+            ImPlot::PlotLine("ms", frameTimeHistory.data(), frameTimeHistory.size());
+            ImPlot::EndPlot();
+        }
+        
+        // Memory History Plot
+        ImGui::Text("Memory History");
+        if (ImPlot::BeginPlot("##Memory History", ImVec2(-1, 80))) {
+            // Create temporary array for MB conversion
+            std::vector<float> memoryHistoryMB(memoryHistory.size());
+            for (size_t i = 0; i < memoryHistory.size(); ++i) {
+                memoryHistoryMB[i] = memoryHistory[i] / (1024.0f * 1024.0f);
+            }
+            ImPlot::PlotLine("MB", memoryHistoryMB.data(), memoryHistoryMB.size());
+            ImPlot::EndPlot();
+        }
         
         if (gpuTimingEnabled && !gpuTimers.empty()) {
             ImGui::Separator();

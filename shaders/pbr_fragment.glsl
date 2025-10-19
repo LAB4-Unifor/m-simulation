@@ -1,29 +1,27 @@
 #version 430 core
-
-in vec3 FragPos;
-in vec2 TexCoords;
-in vec3 Normal;
-
 out vec4 FragColor;
 
-struct Material {
-    vec3 albedo;
-    float metallic;
-    float roughness;
-    float ao;
-};
+in vec3 FragPos;
+in vec3 Normal;
+in vec2 TexCoord;
 
-struct Light {
-    vec3 position;
-    vec3 color;
-    float intensity;
-    bool enabled;
-};
-
-uniform Material material;
-uniform Light lights[4];
-uniform int numLights;
 uniform vec3 viewPos;
+
+// PBR material properties
+uniform vec3 albedo;
+uniform float metallic;
+uniform float roughness;
+uniform float ao;
+
+// Lights
+uniform vec3 lightPositions[4];
+uniform vec3 lightColors[4];
+uniform int numLights;
+
+// Add missing uniforms
+uniform bool wireframeMode;
+uniform vec3 ambientColor;
+uniform float ambientIntensity;
 uniform bool usePBR;
 
 const float PI = 3.14159265359;
@@ -38,7 +36,7 @@ float DistributionGGX(vec3 N, vec3 H, float roughness) {
     float denom = (NdotH2 * (a2 - 1.0) + 1.0);
     denom = PI * denom * denom;
 
-    return nom / max(denom, 0.001);
+    return nom / denom;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness) {
@@ -60,48 +58,51 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
     return ggx1 * ggx2;
 }
 
-vec3 FresnelSchlick(float cosTheta, vec3 F0) {
+vec3 fresnelSchlick(float cosTheta, vec3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
 void main() {
+    if (wireframeMode) {
+        FragColor = vec4(0.8, 0.8, 0.8, 1.0);
+        return;
+    }
+
     vec3 N = normalize(Normal);
     vec3 V = normalize(viewPos - FragPos);
-    
+
     vec3 F0 = vec3(0.04);
-    F0 = mix(F0, material.albedo, material.metallic);
-    
+    F0 = mix(F0, albedo, metallic);
+
     vec3 Lo = vec3(0.0);
-    for (int i = 0; i < numLights; ++i) {
-        if (!lights[i].enabled) continue;
-        
-        vec3 L = normalize(lights[i].position - FragPos);
+    for(int i = 0; i < numLights; ++i) {
+        vec3 L = normalize(lightPositions[i] - FragPos);
         vec3 H = normalize(V + L);
-        float distance = length(lights[i].position - FragPos);
+        float distance = length(lightPositions[i] - FragPos);
         float attenuation = 1.0 / (distance * distance);
-        vec3 radiance = lights[i].color * lights[i].intensity * attenuation;
-        
-        float NDF = DistributionGGX(N, H, material.roughness);
-        float G = GeometrySmith(N, V, L, material.roughness);
-        vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
-        
+        vec3 radiance = lightColors[i] * attenuation;
+
+        float NDF = DistributionGGX(N, H, roughness);
+        float G = GeometrySmith(N, V, L, roughness);
+        vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
+
         vec3 numerator = NDF * G * F;
-        float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.001;
+        float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
         vec3 specular = numerator / denominator;
-        
+
         vec3 kS = F;
         vec3 kD = vec3(1.0) - kS;
-        kD *= 1.0 - material.metallic;
-        
+        kD *= 1.0 - metallic;
+
         float NdotL = max(dot(N, L), 0.0);
-        Lo += (kD * material.albedo / PI + specular) * radiance * NdotL;
+        Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
-    
-    vec3 ambient = vec3(0.03) * material.albedo * material.ao;
+
+    vec3 ambient = ambientColor * ambientIntensity * albedo * ao;
     vec3 color = ambient + Lo;
-    
+
     color = color / (color + vec3(1.0));
     color = pow(color, vec3(1.0/2.2));
-    
+
     FragColor = vec4(color, 1.0);
 }

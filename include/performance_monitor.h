@@ -6,6 +6,10 @@
 #include <chrono>
 #include <GL/glew.h>
 
+// Change to local include
+#include "imgui.h"
+#include "implot.h"
+
 class PerformanceMonitor {
 public:
     PerformanceMonitor();

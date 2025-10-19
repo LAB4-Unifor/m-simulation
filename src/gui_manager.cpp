@@ -1,7 +1,7 @@
 #include "gui_manager.h"
 #include <iostream>
-#include <imgui_impl_sdl2.h>
-#include <imgui_impl_opengl3.h>
+#include "imgui_impl_sdl2.h"
+#include "imgui_impl_opengl3.h"
 
 GUIManager::GUIManager() 
     : background_enabled(true),
@@ -55,16 +55,18 @@ bool GUIManager::initialize(SDL_Window* window, SDL_GLContext gl_context) {
     
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    // Remove docking and viewports for now
+    // io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     
     ImGui::StyleColorsDark();
     
-    ImGuiStyle& style = ImGui::GetStyle();
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    }
+    // Remove viewport style adjustments
+    // ImGuiStyle& style = ImGui::GetStyle();
+    // if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+    //     style.WindowRounding = 0.0f;
+    //     style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    // }
     
     if (!ImGui_ImplSDL2_InitForOpenGL(window, gl_context)) {
         std::cerr << "Failed to initialize ImGui SDL2 backend!" << std::endl;

@@ -1,8 +1,9 @@
 #ifndef GUI_MANAGER_H
 #define GUI_MANAGER_H
 
-#include <imgui.h>
-#include <implot.h>
+// Changed from <imgui.h> to local includes
+#include "imgui.h"
+#include "implot.h"
 #include <SDL.h>
 #include <array>
 #include <cstring>
