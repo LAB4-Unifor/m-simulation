@@ -1,4 +1,5 @@
 #version 430 core
+
 out vec4 FragColor;
 
 in vec3 FragPos;
@@ -18,10 +19,17 @@ uniform vec3 lightPositions[4];
 uniform vec3 lightColors[4];
 uniform int numLights;
 
-// Add missing uniforms
+// Non-PBR material properties (for compatibility)
+struct Material {
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+    bool useTexture;
+};
+
+uniform Material material;
 uniform bool wireframeMode;
-uniform vec3 ambientColor;
-uniform float ambientIntensity;
 uniform bool usePBR;
 
 const float PI = 3.14159265359;
@@ -68,6 +76,30 @@ void main() {
         return;
     }
 
+    if (!usePBR) {
+        // Simple non-PBR fallback
+        vec3 ambient = vec3(0.1) * material.diffuse;
+        vec3 result = ambient;
+        vec3 norm = normalize(Normal);
+        
+        for(int i = 0; i < numLights; ++i) {
+            vec3 lightDir = normalize(lightPositions[i] - FragPos);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = lightColors[i] * diff * material.diffuse;
+            
+            vec3 viewDir = normalize(viewPos - FragPos);
+            vec3 reflectDir = reflect(-lightDir, norm);
+            float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+            vec3 specular = lightColors[i] * spec * material.specular;
+            
+            result += diffuse + specular;
+        }
+        
+        FragColor = vec4(result, 1.0);
+        return;
+    }
+
+    // PBR rendering
     vec3 N = normalize(Normal);
     vec3 V = normalize(viewPos - FragPos);
 
@@ -98,7 +130,7 @@ void main() {
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    vec3 ambient = ambientColor * ambientIntensity * albedo * ao;
+    vec3 ambient = vec3(0.03) * albedo * ao;
     vec3 color = ambient + Lo;
 
     color = color / (color + vec3(1.0));

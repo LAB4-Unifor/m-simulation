@@ -1,9 +1,6 @@
 add_rules("mode.debug", "mode.release")
 
-add_requires("libsdl2")
-add_requires("glew")
-add_requires("glm")
-add_requires("assimp")
+add_requires("libsdl2", "glew", "glm", "assimp")
 
 target("robot_simulator")
     set_kind("binary")
@@ -35,8 +32,18 @@ target("robot_simulator")
     
     -- Copy shaders AND assets to build directory
     after_build(function (target)
-        os.cp("shaders", target:targetdir())
-        os.cp("assets", target:targetdir())
+        local targetdir = target:targetdir()
+        print("Copying shaders to: " .. targetdir)
+        os.cp("shaders", targetdir)
+        print("Copying assets to: " .. targetdir)
+        os.cp("assets", targetdir)
+    end)
+    
+    -- Also copy on configuration to ensure they're available
+    after_config(function (target)
+        local targetdir = target:targetdir()
+        os.cp("shaders", targetdir)
+        os.cp("assets", targetdir)
     end)
     
     if is_plat("linux") then
@@ -44,5 +51,5 @@ target("robot_simulator")
     end
     
     if is_plat("windows") then
-        add_syslinks("opengl32", "gdi32")
+        add_syslinks("opengl32", "gdi32", "user32", "kernel32")
     end

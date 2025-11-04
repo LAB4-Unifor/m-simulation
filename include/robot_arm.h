@@ -6,6 +6,8 @@
 #include "robot_joint.h"
 #include "model_loader.h"
 
+class ShaderProgram;
+
 class RobotArm {
 public:
     RobotArm();
@@ -43,6 +45,9 @@ private:
     
     void updateDHParameters();
     glm::mat4 calculateDHMatrix(float theta, float d, float a, float alpha) const;
+    
+    // ADD THIS METHOD DECLARATION:
+    void renderSimpleCube(const ShaderProgram& shader);
 };
 
 #endif

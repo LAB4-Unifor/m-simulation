@@ -8,7 +8,7 @@ LightingSystem::Light::Light(const glm::vec3& pos, const glm::vec3& col, float i
     : position(pos), color(col), intensity(intens), enabled(true) {}
 
 LightingSystem::LightingSystem() 
-    : ambientColor(0.1f, 0.1f, 0.1f), ambientIntensity(0.1f), usePBR(true) {}
+    : ambientColor(0.1f, 0.1f, 0.1f), ambientIntensity(0.1f), usePBR(false) {}
 
 void LightingSystem::addLight(const Light& light) {
     if (lights.size() < 4) {
@@ -40,9 +40,31 @@ void LightingSystem::setAmbientLight(const glm::vec3& color, float intensity) {
 void LightingSystem::applyToShader(ShaderProgram& shader) {
     shader.use();
     
-    shader.setUniform("numLights", static_cast<int>(lights.size()));
+    std::cout << "=== LIGHTING SYSTEM DEBUG ===" << std::endl;
     
+    // Set common uniforms
+    shader.setUniform("numLights", static_cast<int>(lights.size()));
+    std::cout << "Set numLights: " << lights.size() << std::endl;
+    
+    shader.setUniform("ambientColor", ambientColor);
+    shader.setUniform("ambientIntensity", ambientIntensity);
+    shader.setUniform("usePBR", usePBR);
+    
+    // Set light uniforms for both PBR and non-PBR shaders
     for (size_t i = 0; i < lights.size(); i++) {
+        if (!lights[i].enabled) continue;
+        
+        // For PBR shaders - use lightPositions array
+        std::string posName = "lightPositions[" + std::to_string(i) + "]";
+        std::string colorName = "lightColors[" + std::to_string(i) + "]";
+        
+        shader.setUniform(posName, lights[i].position);
+        shader.setUniform(colorName, lights[i].color);
+        
+        std::cout << "Set light " << i << " - Position: " << posName 
+                  << " Color: " << colorName << std::endl;
+        
+        // For non-PBR shaders - use individual light uniforms
         std::string prefix = "lights[" + std::to_string(i) + "]";
         shader.setUniform(prefix + ".position", lights[i].position);
         shader.setUniform(prefix + ".color", lights[i].color);
@@ -50,7 +72,5 @@ void LightingSystem::applyToShader(ShaderProgram& shader) {
         shader.setUniform(prefix + ".enabled", lights[i].enabled);
     }
     
-    shader.setUniform("ambientColor", ambientColor);
-    shader.setUniform("ambientIntensity", ambientIntensity);
-    shader.setUniform("usePBR", usePBR);
+    std::cout << "=== END LIGHTING DEBUG ===" << std::endl;
 }

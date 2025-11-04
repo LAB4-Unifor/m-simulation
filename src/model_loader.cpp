@@ -31,32 +31,57 @@ ModelLoader::~ModelLoader() {
 }
 
 bool ModelLoader::loadGLTF(const std::string& path) {
+    std::cout << "=== ASSIMP MODEL LOADING DEBUG ===" << std::endl;
+    std::cout << "Loading model with path: " << path << std::endl;
+    
     const aiScene* scene = importer.ReadFile(path, 
         aiProcess_Triangulate | 
         aiProcess_GenSmoothNormals |
         aiProcess_FlipUVs |
-        aiProcess_CalcTangentSpace |
-        aiProcess_OptimizeMeshes);
+        aiProcess_CalcTangentSpace);
     
-    if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
-        std::cerr << "Assimp error: " << importer.GetErrorString() << std::endl;
+    if (!scene) {
+        std::cerr << "✗ Assimp error: " << importer.GetErrorString() << std::endl;
         return false;
     }
     
-    std::cout << "Loading model: " << path << std::endl;
+    if (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) {
+        std::cerr << "✗ Assimp error: Scene is incomplete" << std::endl;
+        return false;
+    }
+    
+    if (!scene->mRootNode) {
+        std::cerr << "✗ Assimp error: No root node" << std::endl;
+        return false;
+    }
+    
+    std::cout << "✓ Scene loaded successfully!" << std::endl;
     std::cout << "Number of meshes: " << scene->mNumMeshes << std::endl;
+    std::cout << "Number of materials: " << scene->mNumMaterials << std::endl;
+    std::cout << "Number of animations: " << scene->mNumAnimations << std::endl;
     
     rootNode.name = scene->mRootNode->mName.C_Str();
+    std::cout << "Root node name: " << rootNode.name << std::endl;
+    
     rootNode.transformation = aiMatrix4x4ToGlm(scene->mRootNode->mTransformation);
     processNode(scene->mRootNode, scene, rootNode);
     
-    std::cout << "Model loaded successfully!" << std::endl;
+    std::cout << "✓ Total meshes processed: " << meshes.size() << std::endl;
+    std::cout << "✓ Model loaded successfully!" << std::endl;
+    std::cout << "=== END ASSIMP DEBUG ===" << std::endl;
     return true;
 }
 
 void ModelLoader::processNode(aiNode* node, const aiScene* scene, Node& parentNode) {
+    std::cout << "Processing node: " << node->mName.C_Str() 
+              << " with " << node->mNumMeshes << " meshes" 
+              << " and " << node->mNumChildren << " children" << std::endl;
+    
     for (unsigned int i = 0; i < node->mNumMeshes; i++) {
         aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
+        std::cout << "  Processing mesh " << i << ": " << mesh->mName.C_Str() 
+                  << " with " << mesh->mNumVertices << " vertices" << std::endl;
+        
         meshes.push_back(processMesh(mesh, scene));
         parentNode.meshIndices.push_back(meshes.size() - 1);
     }
@@ -72,6 +97,12 @@ void ModelLoader::processNode(aiNode* node, const aiScene* scene, Node& parentNo
 
 ModelLoader::Mesh ModelLoader::processMesh(aiMesh* mesh, const aiScene* scene) {
     Mesh result;
+    
+    std::cout << "    Mesh details:" << std::endl;
+    std::cout << "      - Vertices: " << mesh->mNumVertices << std::endl;
+    std::cout << "      - Faces: " << mesh->mNumFaces << std::endl;
+    std::cout << "      - Has normals: " << (mesh->HasNormals() ? "YES" : "NO") << std::endl;
+    std::cout << "      - Has texture coords: " << (mesh->mTextureCoords[0] ? "YES" : "NO") << std::endl;
     
     for (unsigned int i = 0; i < mesh->mNumVertices; i++) {
         glm::vec3 vector;
@@ -104,9 +135,13 @@ ModelLoader::Mesh ModelLoader::processMesh(aiMesh* mesh, const aiScene* scene) {
         }
     }
     
+    std::cout << "      - Processed " << result.vertices.size() << " vertices" << std::endl;
+    std::cout << "      - Processed " << result.indices.size() << " indices" << std::endl;
+    
     if (mesh->mMaterialIndex >= 0) {
         aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
         result.material = processMaterial(material, "");
+        std::cout << "      - Material processed" << std::endl;
     }
     
     setupMesh(result);
@@ -192,11 +227,17 @@ void ModelLoader::render(const ShaderProgram& shader, const glm::mat4& modelMatr
     shader.setUniform("model", modelMatrix);
     
     for (const auto& mesh : meshes) {
-        shader.setUniform("material.ambient", mesh.material.albedo * 0.2f);
+        // Set material properties in a way that works with both shaders
+        shader.setUniform("albedo", mesh.material.albedo);
         shader.setUniform("material.diffuse", mesh.material.albedo);
+        shader.setUniform("material.ambient", mesh.material.albedo * 0.2f);
         shader.setUniform("material.specular", glm::vec3(0.5f, 0.5f, 0.5f));
         shader.setUniform("material.shininess", 32.0f);
         shader.setUniform("material.useTexture", false);
+        
+        shader.setUniform("metallic", mesh.material.metallic);
+        shader.setUniform("roughness", mesh.material.roughness);
+        shader.setUniform("ao", mesh.material.ao);
         
         shader.setUniform("wireframeMode", mesh.wireframe_enabled || wireframeMode);
         
