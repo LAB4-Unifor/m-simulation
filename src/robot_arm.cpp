@@ -1,12 +1,13 @@
 #include "robot_arm.h"
 #include "raymath.h"
-#include "rlgl.h"      // Necessário para manipulação de matrizes (rlPushMatrix, etc)
+#include "rlgl.h"
 #include <iostream>
 #include <algorithm>
-#include <vector>
+#include <cmath>
 
-RobotArm::RobotArm() : animCount(0), animations(nullptr) {
+RobotArm::RobotArm() : animCount(0), animations(nullptr), isDemoActive(false), demoTime(0.0f), demoStep(0) {
     currentAngles.fill(0.0f);
+    targetAngles.fill(0.0f);
     model = { 0 };
 }
 
@@ -15,116 +16,162 @@ RobotArm::~RobotArm() {
 }
 
 void RobotArm::Init(const std::string& modelPath) {
-    // Tenta carregar o modelo, mas não dependemos dele para a simulação funcionar agora
     if (FileExists(modelPath.c_str())) {
         model = LoadModel(modelPath.c_str());
-        // Verificação de segurança para evitar crash se o arquivo for inválido
         if (model.meshCount > 0) {
             animations = LoadModelAnimations(modelPath.c_str(), &animCount);
-            if (animCount > 0) TraceLog(LOG_INFO, "ROBOT: Esqueleto encontrado.");
-            else TraceLog(LOG_WARNING, "ROBOT: Modelo sem ossos. Usando modo geometrico.");
         }
-    } else {
-        TraceLog(LOG_WARNING, "ROBOT: Arquivo nao encontrado. Usando modo geometrico.");
     }
+    // Define a posição inicial como Home
+    GoToHome();
 }
 
 void RobotArm::Unload() {
-    if (animations) {
-        UnloadModelAnimations(animations, animCount);
-        animations = nullptr;
-        animCount = 0;
-    }
-    if (model.meshCount > 0) {
-        UnloadModel(model);
-        model.meshCount = 0;
-    }
+    if (animations) UnloadModelAnimations(animations, animCount);
+    if (model.meshCount > 0) UnloadModel(model);
 }
 
 void RobotArm::SetJointAngle(int index, float angle) {
     if (index < 0 || index >= 6) return;
-    float clampedAngle = std::clamp(angle, lowerLimits[index], upperLimits[index]);
-    currentAngles[index] = clampedAngle;
+    float clamped = std::clamp(angle, lowerLimits[index], upperLimits[index]);
+    targetAngles[index] = clamped; // Agora definimos o ALVO, não o valor imediato
 }
 
 float RobotArm::GetJointAngle(int index) const {
-    if (index < 0 || index >= 6) return 0.0f;
     return currentAngles[index];
 }
 
-void RobotArm::Update(float deltaTime) {
-    // Se tivéssemos ossos reais, atualizaríamos aqui.
-}
-
-// Função auxiliar para desenhar eixos (debug)
-void DrawAxis(float size) {
-    DrawLine3D({0,0,0}, {size,0,0}, RED);   // X
-    DrawLine3D({0,0,0}, {0,size,0}, GREEN); // Y
-    DrawLine3D({0,0,0}, {0,0,size}, BLUE);  // Z
-}
-
-void RobotArm::Draw(float scale) {
-    // Se tivermos um modelo COM ossos carregado, usamos ele.
-    if (animCount > 0 && model.meshCount > 0) {
-        // Lógica de desenho do modelo 3D (futuro)
-        DrawModel(model, {0,0,0}, scale, WHITE);
-    } else {
-        // === MODO PROCEDURAL (ROBÔ GEOMÉTRICO) ===
-        // Construído com primitivas do Raylib e matrizes do rlgl
-        
-        rlPushMatrix(); // Salva a matriz do mundo
-        
-        // Aplica a escala global
-        rlScalef(scale, scale, scale);
-
-        // --- BASE (Fixa) ---
-        // Cilindro vertical: Posição, raio topo, raio base, altura, slices, cor
-        DrawCylinder({0,0,0}, 0.6f, 0.6f, 0.5f, 16, DARKGRAY); 
-        DrawAxis(1.5f);
-        
-        // --- JOINT 1 (Cintura - Gira em Y) ---
-        rlTranslatef(0.0f, 0.5f, 0.0f); // Sobe
-        rlRotatef(currentAngles[0], 0, 1, 0); // Gira
-        
-        DrawCube({0, 0.5f, 0}, 0.5f, 1.0f, 0.5f, RED); // Ombro visual
-        
-        // --- JOINT 2 (Ombro - Gira em Z) ---
-        rlTranslatef(0.0f, 1.0f, 0.0f); 
-        rlRotatef(currentAngles[1], 0, 0, 1); 
-        
-        // Braço Superior
-        DrawCube({0, 1.0f, 0}, 0.4f, 2.0f, 0.4f, ORANGE); 
-        
-        // --- JOINT 3 (Cotovelo) ---
-        rlTranslatef(0.0f, 2.0f, 0.0f); 
-        rlRotatef(currentAngles[2], 0, 0, 1); 
-        
-        // Antebraço (horizontal)
-        DrawCube({0.5f, 0.0f, 0}, 1.0f, 0.3f, 0.3f, YELLOW); 
-        
-        // --- JOINT 4 (Roll do Antebraço) ---
-        rlTranslatef(1.0f, 0.0f, 0.0f); 
-        rlRotatef(currentAngles[3], 1, 0, 0); 
-        
-        // Desenha um cilindro deitado para representar o pulso girando
-        // DrawCylinderEx desenha de um ponto A para um ponto B
-        DrawCylinderEx({0,0,0}, {0.5f, 0, 0}, 0.2f, 0.2f, 8, GREEN);
-        
-        // --- JOINT 5 (Pitch do Pulso) ---
-        rlTranslatef(0.5f, 0.0f, 0.0f);
-        rlRotatef(currentAngles[4], 0, 0, 1); 
-        
-        DrawCube({0,0,0}, 0.3f, 0.3f, 0.3f, BLUE); 
-        
-        // --- JOINT 6 (Yaw/Roll da Ferramenta) ---
-        rlTranslatef(0.2f, 0.0f, 0.0f);
-        rlRotatef(currentAngles[5], 1, 0, 0); 
-        
-        // End Effector (Cone)
-        DrawCylinderEx({0,0,0}, {0.3f, 0, 0}, 0.1f, 0.0f, 16, PURPLE);
-        
-        rlPopMatrix(); // Restaura a matriz
+void RobotArm::SetTargetAngles(const std::array<float, 6>& targets) {
+    for(int i=0; i<6; i++) {
+        SetJointAngle(i, targets[i]);
     }
 }
 
-void RobotArm::UpdateModelNodes() {}
+// --- PRESETS ---
+void RobotArm::GoToHome() {
+    // Posição de descanso padrão
+    SetTargetAngles({0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f});
+}
+
+void RobotArm::GoToZero() {
+    SetTargetAngles({0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f});
+}
+
+void RobotArm::GoToReady() {
+    // Posição pronta para pegar algo na mesa
+    SetTargetAngles({0.0f, 30.0f, 60.0f, 0.0f, -90.0f, 0.0f});
+}
+
+// --- DEMO SYSTEM ---
+void RobotArm::StartDemoSequence() {
+    isDemoActive = true;
+    demoTime = 0.0f;
+    demoStep = 0;
+}
+
+void RobotArm::StopDemoSequence() {
+    isDemoActive = false;
+}
+
+void RobotArm::Update(float deltaTime) {
+    // 1. Atualiza a lógica da Demo se estiver ativa
+    if (isDemoActive) {
+        UpdateDemo(deltaTime);
+    }
+
+    // 2. Interpolação Suave (Lerp)
+    // Move os ângulos atuais em direção aos alvos
+    float speed = 2.0f * deltaTime; // Velocidade de convergência
+    
+    // Se estiver em demo, movemos mais rápido
+    if (isDemoActive) speed = 4.0f * deltaTime;
+
+    for (int i = 0; i < 6; i++) {
+        // Interpolação linear simples: Current + (Target - Current) * Factor
+        float diff = targetAngles[i] - currentAngles[i];
+        if (std::abs(diff) > 0.1f) {
+            currentAngles[i] += diff * speed;
+        } else {
+            currentAngles[i] = targetAngles[i]; // Chegou no alvo
+        }
+    }
+}
+
+void RobotArm::UpdateDemo(float dt) {
+    demoTime += dt;
+    
+    // Máquina de estados simples baseada em tempo
+    // Ciclo de 4 segundos
+    float cycleTime = 4.0f; 
+    float t = fmod(demoTime, cycleTime);
+    
+    if (t < 1.0f) {
+        // Passo 1: Girar base e descer
+        SetTargetAngles({45.0f, 30.0f, 45.0f, 0.0f, -45.0f, 0.0f});
+    } else if (t < 2.0f) {
+        // Passo 2: Pegar (Simulado)
+        SetTargetAngles({45.0f, 45.0f, 80.0f, 0.0f, -45.0f, 0.0f});
+    } else if (t < 3.0f) {
+        // Passo 3: Subir e girar para outro lado
+        SetTargetAngles({-45.0f, 10.0f, 45.0f, 180.0f, -45.0f, 0.0f});
+    } else {
+        // Passo 4: Soltar
+        SetTargetAngles({-45.0f, 40.0f, 70.0f, 0.0f, -45.0f, 0.0f});
+    }
+}
+
+void RobotArm::DrawWorkEnvelope(float scale) {
+    // Desenha uma esfera transparente representando o alcance máximo (Raio ~500-600mm)
+    // Ajustado visualmente para a escala do modelo geométrico
+    DrawSphereWires({0, 1.0f * scale, 0}, 3.0f * scale, 16, 16, {0, 255, 0, 50});
+}
+
+// --- DESENHO (Mantido do anterior, mas agora usa currentAngles suavizados) ---
+void RobotArm::Draw(float scale) {
+    // ... [MANTENHA O CÓDIGO DO ROBÔ GEOMÉTRICO QUE TE PASSEI ANTES AQUI] ...
+    // Vou resumir para não ficar gigante, mas você deve copiar o corpo do Draw anterior.
+    // Apenas certifique-se de usar 'currentAngles' que agora são suavizados.
+    
+    if (animCount > 0 && model.meshCount > 0) {
+        DrawModel(model, {0,0,0}, scale, WHITE);
+    } else {
+        // MODO PROCEDURAL
+        rlPushMatrix();
+        rlScalef(scale, scale, scale);
+        
+        // Base
+        DrawCylinder({0,0,0}, 0.6f, 0.6f, 0.5f, 16, DARKGRAY);
+        
+        // J1
+        rlTranslatef(0.0f, 0.5f, 0.0f);
+        rlRotatef(currentAngles[0], 0, 1, 0);
+        DrawCube({0, 0.5f, 0}, 0.5f, 1.0f, 0.5f, RED);
+        
+        // J2
+        rlTranslatef(0.0f, 1.0f, 0.0f);
+        rlRotatef(currentAngles[1], 0, 0, 1);
+        DrawCube({0, 1.0f, 0}, 0.4f, 2.0f, 0.4f, ORANGE);
+        
+        // J3
+        rlTranslatef(0.0f, 2.0f, 0.0f);
+        rlRotatef(currentAngles[2], 0, 0, 1);
+        DrawCube({0.5f, 0.0f, 0}, 1.0f, 0.3f, 0.3f, YELLOW);
+        
+        // J4
+        rlTranslatef(1.0f, 0.0f, 0.0f);
+        rlRotatef(currentAngles[3], 1, 0, 0);
+        DrawCylinderEx({0,0,0}, {0.5f, 0, 0}, 0.2f, 0.2f, 8, GREEN);
+        
+        // J5
+        rlTranslatef(0.5f, 0.0f, 0.0f);
+        rlRotatef(currentAngles[4], 0, 0, 1);
+        DrawCube({0,0,0}, 0.3f, 0.3f, 0.3f, BLUE);
+        
+        // J6
+        rlTranslatef(0.2f, 0.0f, 0.0f);
+        rlRotatef(currentAngles[5], 1, 0, 0);
+        DrawCylinderEx({0,0,0}, {0.3f, 0, 0}, 0.1f, 0.0f, 16, PURPLE);
+        
+        rlPopMatrix();
+    }
+}

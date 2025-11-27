@@ -6,6 +6,10 @@
     #include <thread>
     #include <fstream>
     #include <functional>
+    #include <netinet/in.h>
+    #include <sys/socket.h>
+    #include <unistd.h>
+    #include <fcntl.h>
 
     class RobotCommunication {
     public:
@@ -27,6 +31,8 @@
         int serverPort;
         ConnectionState state;
         bool running;
+        int serverSocket;
+        int clientSocket;
         
         std::thread commThread;
         std::mutex dataMutex;
@@ -35,4 +41,7 @@
         std::array<float, 6> targetJoints;
 
         void CommunicationLoop();
+        void SetupServer();
+        void HandleClient();
+        std::vector<std::string> SplitString(const std::string& str, char delimiter);
     };
