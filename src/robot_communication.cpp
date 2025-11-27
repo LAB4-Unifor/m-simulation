@@ -1,276 +1,188 @@
 #include "robot_communication.h"
 #include <iostream>
-#include <fstream>
 #include <chrono>
 #include <cstring>
+#include <sstream>
+#include <vector>
+
+// Linux headers para Sockets
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
 
 RobotCommunication::RobotCommunication() 
-    : connectionState(ConnectionState::DISCONNECTED),
-      simulationMode(SimulationMode::MANUAL),
-      running(false),
-      loggingEnabled(false),
-      serverPort(502),
-      updateRate(50) {
-    
-    currentJointAngles.fill(0.0f);
-    targetJointAngles.fill(0.0f);
+    : state(ConnectionState::DISCONNECTED), running(false), serverPort(10001), serverSocket(-1), clientSocket(-1) {
+    currentJoints.fill(0.0f);
+    targetJoints.fill(0.0f);
 }
 
 RobotCommunication::~RobotCommunication() {
-    disconnect();
-    if (loggingEnabled) {
-        stopLogging();
-    }
+    Disconnect();
 }
 
-bool RobotCommunication::connect(const std::string& address, int port) {
-    if (isConnected()) {
-        disconnect();
-    }
+void RobotCommunication::Connect(const std::string& ip, int port) {
+    if (running) Disconnect();
     
-    serverAddress = address;
     serverPort = port;
-    connectionState = ConnectionState::CONNECTING;
-    
-    if (connectionCallback) {
-        connectionCallback(connectionState);
-    }
-    
     running = true;
-    commThread = std::thread(&RobotCommunication::communicationThread, this);
+    state = ConnectionState::CONNECTING;
     
-    return true;
+    // Inicia a thread que vai gerenciar o servidor
+    commThread = std::thread(&RobotCommunication::CommunicationLoop, this);
 }
 
-void RobotCommunication::disconnect() {
+void RobotCommunication::Disconnect() {
     running = false;
+    if (clientSocket != -1) close(clientSocket);
+    if (serverSocket != -1) close(serverSocket);
+    
     if (commThread.joinable()) {
         commThread.join();
     }
-    connectionState = ConnectionState::DISCONNECTED;
-    
-    if (connectionCallback) {
-        connectionCallback(connectionState);
-    }
+    state = ConnectionState::DISCONNECTED;
 }
 
-bool RobotCommunication::isConnected() const {
-    return connectionState == ConnectionState::CONNECTED;
+bool RobotCommunication::IsConnected() const {
+    return state == ConnectionState::CONNECTED;
 }
 
-RobotCommunication::ConnectionState RobotCommunication::getConnectionState() const {
-    return connectionState;
-}
-
-void RobotCommunication::setSimulationMode(SimulationMode mode) {
-    simulationMode = mode;
-}
-
-RobotCommunication::SimulationMode RobotCommunication::getSimulationMode() const {
-    return simulationMode;
-}
-
-bool RobotCommunication::sendJointAngles(const std::array<float, 6>& angles) {
+std::array<float, 6> RobotCommunication::ReadJointAngles() {
     std::lock_guard<std::mutex> lock(dataMutex);
-    targetJointAngles = angles;
-    return true;
+    return currentJoints;
 }
 
-std::array<float, 6> RobotCommunication::readJointAngles() {
+void RobotCommunication::SendJointAngles(const std::array<float, 6>& angles) {
     std::lock_guard<std::mutex> lock(dataMutex);
-    return currentJointAngles;
+    // Aqui atualizaríamos o estado interno para refletir o que a simulação está fazendo
+    currentJoints = angles;
 }
 
-bool RobotCommunication::sendCommand(const std::string& command) {
-    std::cout << "Sending command: " << command << std::endl;
-    return true;
-}
-
-std::string RobotCommunication::readResponse() {
-    return "OK";
-}
-
-void RobotCommunication::setConnectionCallback(std::function<void(ConnectionState)> callback) {
-    connectionCallback = callback;
-}
-
-void RobotCommunication::setDataReceivedCallback(std::function<void(const std::array<float, 6>&)> callback) {
-    dataReceivedCallback = callback;
-}
-
-void RobotCommunication::setErrorCallback(std::function<void(const std::string&)> callback) {
-    errorCallback = callback;
-}
-
-void RobotCommunication::startLogging(const std::string& filename) {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    
-    logFile.open(filename, std::ios::out);
-    if (logFile.is_open()) {
-        logFilename = filename;
-        loggingEnabled = true;
-        logFile << "timestamp,j1,j2,j3,j4,j5,j6,mode\n";
-    } else {
-        if (errorCallback) {
-            errorCallback("Failed to open log file: " + filename);
-        }
+// Utilitário para quebrar string
+std::vector<std::string> RobotCommunication::SplitString(const std::string& str, char delimiter) {
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(str);
+    while (std::getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
     }
+    return tokens;
 }
 
-void RobotCommunication::stopLogging() {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    
-    if (logFile.is_open()) {
-        logFile.close();
-    }
-    loggingEnabled = false;
-}
-
-bool RobotCommunication::isLogging() const {
-    return loggingEnabled;
-}
-
-bool RobotCommunication::exportTrajectory(const std::string& filename, const std::vector<std::array<float, 6>>& trajectory) {
-    std::ofstream file(filename, std::ios::out);
-    if (!file.is_open()) {
-        return false;
-    }
-    
-    file << "j1,j2,j3,j4,j5,j6\n";
-    
-    for (const auto& angles : trajectory) {
-        for (size_t i = 0; i < angles.size(); i++) {
-            file << angles[i];
-            if (i < angles.size() - 1) {
-                file << ",";
-            }
-        }
-        file << "\n";
-    }
-    
-    file.close();
-    return true;
-}
-
-bool RobotCommunication::importTrajectory(const std::string& filename, std::vector<std::array<float, 6>>& trajectory) {
-    std::ifstream file(filename, std::ios::in);
-    if (!file.is_open()) {
-        return false;
-    }
-    
-    trajectory.clear();
-    std::string line;
-    
-    std::getline(file, line);
-    
-    while (std::getline(file, line)) {
-        std::array<float, 6> angles;
-        size_t pos = 0;
-        size_t lastPos = 0;
-        int index = 0;
-        
-        while ((pos = line.find(',', lastPos)) != std::string::npos && index < 6) {
-            angles[index++] = std::stof(line.substr(lastPos, pos - lastPos));
-            lastPos = pos + 1;
-        }
-        
-        if (index < 6) {
-            angles[index] = std::stof(line.substr(lastPos));
-        }
-        
-        trajectory.push_back(angles);
-    }
-    
-    file.close();
-    return true;
-}
-
-void RobotCommunication::communicationThread() {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    
-    if (establishConnection()) {
-        connectionState = ConnectionState::CONNECTED;
-        if (connectionCallback) {
-            connectionCallback(connectionState);
-        }
-    } else {
-        connectionState = ConnectionState::ERROR;
-        if (connectionCallback) {
-            connectionCallback(connectionState);
-        }
-        if (errorCallback) {
-            errorCallback("Failed to establish connection");
-        }
+void RobotCommunication::SetupServer() {
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (serverSocket == -1) {
+        std::cerr << "COMM: Failed to create socket" << std::endl;
+        state = ConnectionState::ERROR_STATE;
         return;
     }
+
+    // Permite reusar a porta imediatamente após fechar
+    int opt = 1;
+    setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+
+    sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(serverPort);
+
+    if (bind(serverSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+        std::cerr << "COMM: Bind failed on port " << serverPort << std::endl;
+        state = ConnectionState::ERROR_STATE;
+        return;
+    }
+
+    listen(serverSocket, 1);
+    std::cout << "COMM: Server listening on port " << serverPort << "..." << std::endl;
+}
+
+void RobotCommunication::HandleClient() {
+    char buffer[1024];
+    // Configura socket como Non-Blocking para não travar a thread
+    int flags = fcntl(clientSocket, F_GETFL, 0);
+    fcntl(clientSocket, F_SETFL, flags | O_NONBLOCK);
+
+    int bytesRead = recv(clientSocket, buffer, 1024, 0);
     
-    auto lastUpdate = std::chrono::steady_clock::now();
-    
+    if (bytesRead > 0) {
+        buffer[bytesRead] = '\0';
+        std::string command(buffer);
+        
+        // Remove quebra de linha
+        if (!command.empty() && command.back() == '\n') command.pop_back();
+        
+        std::cout << "COMM: Received command: " << command << std::endl;
+
+        auto tokens = SplitString(command, ' ');
+        if (tokens.empty()) return;
+
+        if (tokens[0] == "MOVE" && tokens.size() >= 7) {
+            // PROTOCOLO: MOVE J1 J2 J3 J4 J5 J6
+            std::lock_guard<std::mutex> lock(dataMutex);
+            for(int i=0; i<6; i++) {
+                try {
+                    targetJoints[i] = std::stof(tokens[i+1]);
+                } catch(...) {}
+            }
+            std::string reply = "OK MOVING\n";
+            send(clientSocket, reply.c_str(), reply.length(), 0);
+        }
+        else if (tokens[0] == "GETPOS") {
+            // PROTOCOLO: GETPOS -> Retorna ângulos atuais
+            std::stringstream ss;
+            {
+                std::lock_guard<std::mutex> lock(dataMutex);
+                ss << "POS " << currentJoints[0] << " " << currentJoints[1] << " " 
+                   << currentJoints[2] << " " << currentJoints[3] << " " 
+                   << currentJoints[4] << " " << currentJoints[5] << "\n";
+            }
+            std::string reply = ss.str();
+            send(clientSocket, reply.c_str(), reply.length(), 0);
+        }
+    } else if (bytesRead == 0) {
+        // Cliente desconectou
+        close(clientSocket);
+        clientSocket = -1;
+        state = ConnectionState::DISCONNECTED;
+        std::cout << "COMM: Client disconnected." << std::endl;
+    }
+}
+
+void RobotCommunication::CommunicationLoop() {
+    SetupServer();
+
     while (running) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate);
-        
-        if (elapsed.count() >= 1000 / updateRate) {
-            processIncomingData();
-            lastUpdate = now;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    
-    connectionState = ConnectionState::DISCONNECTED;
-    if (connectionCallback) {
-        connectionCallback(connectionState);
-    }
-}
+        if (serverSocket == -1) break;
 
-bool RobotCommunication::establishConnection() {
-    std::cout << "Establishing connection to " << serverAddress << ":" << serverPort << std::endl;
-    return true;
-}
+        if (clientSocket == -1) {
+            // Aceitar conexão
+            sockaddr_in clientAddr;
+            socklen_t clientLen = sizeof(clientAddr);
+            
+            // Aceita conexão (Blocking neste ponto, mas temos timeout ou thread separada)
+            // Para simplicidade, usamos accept bloqueante mas verificamos 'running'
+            fd_set set;
+            struct timeval timeout;
+            FD_ZERO(&set);
+            FD_SET(serverSocket, &set);
+            timeout.tv_sec = 0;
+            timeout.tv_usec = 100000; // 100ms timeout
 
-void RobotCommunication::processIncomingData() {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    
-    for (int i = 0; i < 6; i++) {
-        float diff = targetJointAngles[i] - currentJointAngles[i];
-        float maxChange = 0.5f;
-        
-        if (std::abs(diff) > maxChange) {
-            currentJointAngles[i] += (diff > 0 ? maxChange : -maxChange);
+            int rv = select(serverSocket + 1, &set, NULL, NULL, &timeout);
+            if(rv > 0) {
+                clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientLen);
+                if (clientSocket >= 0) {
+                    state = ConnectionState::CONNECTED;
+                    std::cout << "COMM: Client Connected!" << std::endl;
+                }
+            }
         } else {
-            currentJointAngles[i] = targetJointAngles[i];
+            // Processar dados do cliente conectado
+            HandleClient();
         }
-    }
-    
-    if (loggingEnabled && logFile.is_open()) {
-        logData(currentJointAngles);
-    }
-    
-    if (dataReceivedCallback) {
-        dataReceivedCallback(currentJointAngles);
-    }
-}
 
-void RobotCommunication::logData(const std::array<float, 6>& angles) {
-    auto now = std::chrono::system_clock::now();
-    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()).count();
-    
-    logFile << timestamp << ",";
-    for (size_t i = 0; i < angles.size(); i++) {
-        logFile << angles[i];
-        if (i < angles.size() - 1) {
-            logFile << ",";
-        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     
-    switch (simulationMode) {
-        case SimulationMode::MANUAL: logFile << ",MANUAL"; break;
-        case SimulationMode::PLAYBACK: logFile << ",PLAYBACK"; break;
-        case SimulationMode::REAL_TIME_SYNC: logFile << ",REAL_TIME_SYNC"; break;
-        case SimulationMode::SIMULATION_ONLY: logFile << ",SIMULATION_ONLY"; break;
-    }
-    
-    logFile << "\n";
+    if (serverSocket != -1) close(serverSocket);
 }

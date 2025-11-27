@@ -1,284 +1,104 @@
-#include <iostream>
-#include <SDL.h>
-#include <GL/glew.h>
-#include <SDL_opengl.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <fstream>
-#include "renderer.h"
-#include "shader_program.h"
-#include "camera.h"
-#include "input_handler.h"
-#include "robot_arm.h"
-#include "gui_manager.h"
-#include "lighting_system.h"
-#include "animation_controller.h"
+#include "raylib.h"
+#include "rlImGui.h"
+#include "robot_controller.h"
+#include "robot_model.h"
 #include "robot_communication.h"
+#include "gui_manager.h"
 
-int main(int argc, char *argv[])
-{
-    std::cout << "Initializing Robot Simulator..." << std::endl;
+int main() {
+    // 1. Initialization
+    const int screenWidth = 1280;
+    const int screenHeight = 720;
 
-    Renderer renderer;
-    if (!renderer.initialize(1920, 1080, "Robot Simulator"))
-    {
-        std::cerr << "Failed to initialize renderer!" << std::endl;
-        return -1;
-    }
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
+    InitWindow(screenWidth, screenHeight, "Mitsubishi RV-2SDB Simulation (Modular)");
+    SetTargetFPS(60);
 
-    GUIManager guiManager;
-    if (!guiManager.initialize(renderer.getWindow(), renderer.getGLContext()))
-    {
-        std::cerr << "Failed to initialize GUI manager!" << std::endl;
-        return -1;
-    }
+    rlImGuiSetup(true);
 
-    // ===== SHADER LOADING DEBUG =====
-    std::cout << "=== SHADER LOADING DEBUG ===" << std::endl;
-    ShaderProgram pbrShader;
+    // 2. Camera Setup
+    Camera3D camera = { 0 };
+    camera.position = (Vector3){ 6.0f, 6.0f, 6.0f };
+    camera.target = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
+    camera.fovy = 45.0f;
+    camera.projection = CAMERA_PERSPECTIVE;
 
-    // Check if shader files exist
-    std::ifstream pbrVert("shaders/pbr_vertex.glsl");
-    std::ifstream pbrFrag("shaders/pbr_fragment.glsl");
-    std::ifstream fallbackVert("shaders/vertex.glsl");
-    std::ifstream fallbackFrag("shaders/fragment.glsl");
+    // 3. Instantiate Components
+    RobotController controller;   // Handles logic, interpolation, and limits
+    RobotModel model;             // Handles drawing (procedural or 3D mesh)
+    RobotCommunication comms;     // Handles Socket Server
+    GuiManager gui;               // Handles ImGui Interface
 
-    std::cout << "PBR vertex shader exists: " << (pbrVert.is_open() ? "YES" : "NO") << std::endl;
-    std::cout << "PBR fragment shader exists: " << (pbrFrag.is_open() ? "YES" : "NO") << std::endl;
-    std::cout << "Fallback vertex shader exists: " << (fallbackVert.is_open() ? "YES" : "NO") << std::endl;
-    std::cout << "Fallback fragment shader exists: " << (fallbackFrag.is_open() ? "YES" : "NO") << std::endl;
+    // 4. Component Setup
+    model.Init("assets/Robot.glb"); // Try to load GLB, falls back to geometric if missing
+    
+    // Starts the socket server on port 10001 (IP argument is ignored in provided impl, but required by signature)
+    comms.Connect("0.0.0.0", 10001); 
 
-    if (pbrVert.is_open())
-        pbrVert.close();
-    if (pbrFrag.is_open())
-        pbrFrag.close();
-    if (fallbackVert.is_open())
-        fallbackVert.close();
-    if (fallbackFrag.is_open())
-        fallbackFrag.close();
+    DisableCursor(); // Start with camera control active
 
-    // Try loading PBR shader
-    if (pbrShader.loadFromFiles("shaders/pbr_vertex.glsl", "shaders/pbr_fragment.glsl"))
-    {
-        std::cout << "SUCCESS: Loaded PBR shader!" << std::endl;
-    }
-    else
-    {
-        std::cerr << "FAILED: PBR shader loading failed!" << std::endl;
-        std::cerr << "Trying fallback shaders..." << std::endl;
+    // 5. Main Loop
+    while (!WindowShouldClose()) {
+        float dt = GetFrameTime();
 
-        if (pbrShader.loadFromFiles("shaders/vertex.glsl", "shaders/fragment.glsl"))
-        {
-            std::cout << "SUCCESS: Loaded fallback shader!" << std::endl;
+        // --- Input Handling ---
+        if (IsKeyPressed(KEY_TAB)) {
+            if (IsCursorHidden()) EnableCursor();
+            else DisableCursor();
         }
-        else
-        {
-            std::cerr << "CRITICAL: All shader loading failed!" << std::endl;
-            return -1;
+
+        // Only move camera if cursor is locked
+        if (IsCursorHidden()) {
+            UpdateCamera(&camera, CAMERA_FREE);
         }
-    }
-    std::cout << "=== END SHADER DEBUG ===" << std::endl;
-    // ===== END SHADER DEBUG =====
 
-    LightingSystem lightingSystem;
+        // --- Logic Update ---
+        controller.Update(dt);
 
-    LightingSystem::Light mainLight;
-    mainLight.position = glm::vec3(2.0f, 5.0f, 2.0f);
-    mainLight.color = glm::vec3(1.0f, 1.0f, 1.0f);
-    mainLight.intensity = 1.0f;
-    lightingSystem.addLight(mainLight);
+        // Sync: Send current angles to the network thread so clients using "GETPOS" see real data
+        comms.SendJointAngles(controller.GetAllAngles());
 
-    LightingSystem::Light fillLight;
-    fillLight.position = glm::vec3(-2.0f, 3.0f, -2.0f);
-    fillLight.color = glm::vec3(0.5f, 0.5f, 0.8f);
-    fillLight.intensity = 0.5f;
-    lightingSystem.addLight(fillLight);
+        // --- Drawing ---
+        BeginDrawing();
+            
+            // Convert GUI float color (0.0-1.0) to Raylib Color (0-255)
+            Color clearCol = { 
+                (unsigned char)(gui.bgColor[0] * 255), 
+                (unsigned char)(gui.bgColor[1] * 255), 
+                (unsigned char)(gui.bgColor[2] * 255), 
+                255 
+            };
+            ClearBackground(clearCol);
 
-    Camera camera;
-    camera.setPerspective(glm::radians(45.0f),
-                          static_cast<float>(renderer.getWidth()) / static_cast<float>(renderer.getHeight()),
-                          0.1f, 100.0f);
-    camera.setTarget(glm::vec3(0.0f, 1.0f, 0.0f));
-    camera.setPosition(glm::vec3(0.0f, 2.0f, 5.0f));
+            BeginMode3D(camera);
+                DrawGrid(20, 1.0f);
+                
+                // Draw the Robot
+                // We get angles from Controller and settings from GUI Manager
+                model.Draw(controller.GetAllAngles(), gui.modelScale, gui.showWireframe);
 
-    InputHandler inputHandler;
-
-    RobotArm robotArm;
-    robotArm.initialize();
-
-    AnimationController animationController;
-
-    AnimationController::Keyframe homeFrame;
-    homeFrame.jointAngles = {0.0f, 0.0f, 90.0f, 0.0f, 0.0f, 0.0f};
-    homeFrame.timestamp = 0.0f;
-    homeFrame.name = "Home Position";
-    animationController.addKeyframe(homeFrame);
-
-    AnimationController::Keyframe extendedFrame;
-    extendedFrame.jointAngles = {0.0f, 0.0f, 160.0f, 0.0f, 0.0f, 0.0f};
-    extendedFrame.timestamp = 2.0f;
-    extendedFrame.name = "Extended Position";
-    animationController.addKeyframe(extendedFrame);
-
-    AnimationController::Keyframe foldedFrame;
-    foldedFrame.jointAngles = {0.0f, -90.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-    foldedFrame.timestamp = 4.0f;
-    foldedFrame.name = "Folded Position";
-    animationController.addKeyframe(foldedFrame);
-
-    RobotCommunication robotComm;
-
-    robotComm.setConnectionCallback([&](RobotCommunication::ConnectionState state)
-                                    { std::cout << "Connection state changed: " << static_cast<int>(state) << std::endl; });
-
-    robotComm.setDataReceivedCallback([&](const std::array<float, 6> &angles)
-                                      {
-        if (robotComm.getSimulationMode() == RobotCommunication::SimulationMode::REAL_TIME_SYNC) {
-            robotArm.setJointAngles(angles, true);
-        } });
-
-    robotComm.setErrorCallback([&](const std::string &error)
-                               { std::cerr << "Communication error: " << error << std::endl; });
-
-    guiManager.setServerAddress("192.168.1.100");
-    guiManager.setServerPort(502);
-    guiManager.setLogFilename("robot_log.csv");
-
-    bool quit = false;
-    SDL_Event e;
-
-    glEnable(GL_DEPTH_TEST);
-
-    Uint32 lastTime = SDL_GetTicks();
-
-    PerformanceMonitor &perfMonitor = renderer.getPerformanceMonitor();
-
-    while (!quit)
-    {
-        perfMonitor.beginFrame();
-
-        Uint32 currentTime = SDL_GetTicks();
-        float deltaTime = (currentTime - lastTime) / 1000.0f;
-        lastTime = currentTime;
-
-        while (SDL_PollEvent(&e) != 0)
-        {
-            if (e.type == SDL_QUIT)
-            {
-                quit = true;
-            }
-
-            guiManager.handleEvent(e);
-
-            ImGuiIO &io = ImGui::GetIO();
-            if (!io.WantCaptureMouse && !io.WantCaptureKeyboard)
-            {
-                inputHandler.handleEvent(e, camera);
-
-                if (e.type == SDL_KEYDOWN)
-                {
-                    switch (e.key.keysym.sym)
-                    {
-                    case SDLK_c:
-                        if (robotComm.isConnected())
-                        {
-                            robotComm.disconnect();
-                        }
-                        else
-                        {
-                            robotComm.connect(guiManager.getServerAddress(), guiManager.getServerPort());
-                        }
-                        break;
-                    }
+                // Draw Envelope if enabled in GUI
+                if (gui.showEnvelope) {
+                    // Simple visualization of reach (approximate sphere)
+                    DrawSphereWires({0, 1.0f, 0}, 2.5f * gui.modelScale, 16, 16, {255, 255, 255, 50});
                 }
-            }
-        } // End of SDL_PollEvent while loop
+            EndMode3D();
 
-        inputHandler.update(deltaTime, camera);
-        camera.update(deltaTime);
-        animationController.update(deltaTime, robotArm);
-        robotArm.update(deltaTime);
+            // --- GUI Overlay ---
+            rlImGuiBegin();
+                // Pass dependencies to the GUI Manager
+                gui.Draw(controller, comms);
+            rlImGuiEnd();
 
-        auto mode = robotComm.getSimulationMode();
-        if (mode == RobotCommunication::SimulationMode::REAL_TIME_SYNC && robotComm.isConnected())
-        {
-            auto angles = robotArm.getJointAngles();
-            robotComm.sendJointAngles(angles);
-        }
-        else if (mode == RobotCommunication::SimulationMode::MANUAL && robotComm.isConnected())
-        {
-            auto angles = robotComm.readJointAngles();
-            robotArm.setJointAngles(angles, true);
-        }
-
-        guiManager.newFrame();
-
-        guiManager.showMainMenuBar();
-        guiManager.showDisplayControls(camera, renderer);
-        guiManager.showLightingControls(lightingSystem);
-        guiManager.showJointControls(robotArm);
-        guiManager.showRobotStatus(robotArm);
-        guiManager.showPerformanceMonitor(perfMonitor);
-        guiManager.showCameraControls(camera);
-        guiManager.showCommunicationControls(robotComm);
-        guiManager.showDataLoggingControls(robotComm);
-
-        animationController.renderGUI();
-
-        if (guiManager.isBackgroundEnabled())
-        {
-            glm::vec3 bgColor = guiManager.getBackgroundColor();
-            glClearColor(bgColor.r, bgColor.g, bgColor.b, 1.0f);
-        }
-        else
-        {
-            glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        }
-        renderer.clear();
-
-        perfMonitor.beginGPUTimer("Main Rendering");
-
-        // In the rendering section of main.cpp, replace this:
-        pbrShader.use();
-        pbrShader.setUniform("projection", camera.getProjectionMatrix());
-        pbrShader.setUniform("view", camera.getViewMatrix());
-        pbrShader.setUniform("viewPos", camera.getPosition());
-
-        // Set basic material properties
-        pbrShader.setUniform("albedo", glm::vec3(0.7f, 0.7f, 0.7f));
-        pbrShader.setUniform("metallic", 0.0f);
-        pbrShader.setUniform("roughness", 0.5f);
-        pbrShader.setUniform("ao", 1.0f);
-        pbrShader.setUniform("lightPos", glm::vec3(2.0f, 5.0f, 2.0f));
-
-        // Set lighting
-        lightingSystem.applyToShader(pbrShader);
-
-        // With this simplified version:
-        pbrShader.use();
-        pbrShader.setUniform("projection", camera.getProjectionMatrix());
-        pbrShader.setUniform("view", camera.getViewMatrix());
-        pbrShader.setUniform("viewPos", camera.getPosition());
-        pbrShader.setUniform("albedo", glm::vec3(0.7f, 0.7f, 0.7f));
-
-        if (guiManager.isGridEnabled())
-        {
-            renderer.getGridRenderer().render(camera.getViewMatrix(), camera.getProjectionMatrix());
-        }
-
-        robotArm.render(pbrShader);
-
-        perfMonitor.endGPUTimer("Main Rendering");
-        guiManager.render();
-        perfMonitor.endFrame();
-        perfMonitor.update(deltaTime);
-
-        renderer.swapBuffers();
-        SDL_Delay(1);
+        EndDrawing();
     }
 
-    robotComm.disconnect();
-    renderer.cleanup();
+    // 6. Cleanup
+    model.Unload();
+    comms.Disconnect();
+    rlImGuiShutdown();
+    CloseWindow();
 
     return 0;
 }
