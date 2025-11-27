@@ -26,7 +26,7 @@ FetchContent_Declare(
   JoltPhysics
   GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
   GIT_TAG v5.0.0
-  SOURCE_SUBDIR Build  # <--- ESSA LINHA ERA A QUE FALTAVA!
+  SOURCE_SUBDIR Build 
 )
 FetchContent_MakeAvailable(JoltPhysics)
 
@@ -38,7 +38,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imgui)
 
-# Cria o alvo imgui manualmente
 add_library(imgui STATIC
     ${imgui_SOURCE_DIR}/imgui.cpp
     ${imgui_SOURCE_DIR}/imgui_draw.cpp
@@ -56,8 +55,8 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(rlImGui)
 
-# --- 5. Executável ---
-add_executable(raylib-jolt-demo 
+# --- 5. exe ---
+add_executable(Robot_yuki 
     src/main.cpp 
     src/robot_arm.cpp 
     src/robot_communication.cpp
@@ -65,7 +64,7 @@ add_executable(raylib-jolt-demo
 )
 
 # Diretórios de Include
-target_include_directories(raylib-jolt-demo PUBLIC 
+target_include_directories(Robot_yuki PUBLIC 
     src 
     ${raylib_SOURCE_DIR}/src
     ${joltphysics_SOURCE_DIR} 
@@ -73,7 +72,7 @@ target_include_directories(raylib-jolt-demo PUBLIC
 )
 
 # Linkagem
-target_link_libraries(raylib-jolt-demo PRIVATE 
+target_link_libraries(Robot_yuki PRIVATE 
     raylib 
     imgui
     Jolt 
