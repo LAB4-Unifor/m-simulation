@@ -1,304 +1,122 @@
 #include "raylib.h"
-#include "raymath.h"
+#include "rlImGui.h"
+#include "imgui.h"
 
-#include <Jolt/Jolt.h>
-#include <Jolt/RegisterTypes.h>
-#include <Jolt/Core/Factory.h>
-#include <Jolt/Core/TempAllocator.h>
-#include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Physics/PhysicsSettings.h>
-#include <Jolt/Physics/PhysicsSystem.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-#include <Jolt/Physics/Body/BodyActivationListener.h>
-#include <Jolt/Physics/Collision/RayCast.h>
-#include <Jolt/Physics/Collision/CastResult.h>
-#include <Jolt/Physics/Constraints/PointConstraint.h>
-#include <Jolt/Physics/Body/BodyLock.h>
-#include <Jolt/Physics/Collision/ObjectLayer.h>
-#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
-#include <Jolt/Physics/Collision/BroadPhase/BroadPhaseQuery.h>
+#include "robot_arm.h"
+#include "robot_communication.h"
+#include <string>
 
-#include <vector>
-
-// Disable common warnings triggered by Jolt, you can use #pragma warning(disable: ...) or -Wno-...
-#ifdef JPH_DISABLE_warnings
-#pragma warning(disable: 4324) // structure was padded due to alignment specifier
-#endif
-
-// Jolt layer settings
-namespace Layers
-{
-    static constexpr JPH::ObjectLayer NON_MOVING = 0;
-    static constexpr JPH::ObjectLayer MOVING = 1;
-    static constexpr JPH::ObjectLayer COUNT = 2;
-};
-
-// Jolt broadphase layer interface
-class BPLayerInterfaceImpl final : public JPH::BroadPhaseLayerInterface
-{
-public:
-    BPLayerInterfaceImpl()
-    {
-        // Create a mapping table from object to broadphase layer
-        mObjectToBroadPhase[Layers::NON_MOVING] = JPH::BroadPhaseLayer(0);
-        mObjectToBroadPhase[Layers::MOVING] = JPH::BroadPhaseLayer(1);
-    }
-
-    virtual JPH::uint GetNumBroadPhaseLayers() const override
-    {
-        return 2;
-    }
-
-    virtual JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer inLayer) const override
-    {
-        JPH_ASSERT(inLayer < Layers::COUNT);
-        return mObjectToBroadPhase[inLayer];
-    }
-
-#if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-    virtual const char *GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer) const override
-    {
-        switch ((JPH::BroadPhaseLayer::Type)inLayer)
-        {
-        case 0:
-            return "NON_MOVING";
-        case 1:
-            return "MOVING";
-        default:
-            JPH_ASSERT(false);
-            return "INVALID";
-        }
-    }
-#endif // JPH_EXTERNAL_PROFILE || JPH_PROFILE_ENABLED
-
-private:
-    JPH::BroadPhaseLayer mObjectToBroadPhase[Layers::COUNT];
-};
-
-// Jolt object vs broadphase layer filter
-class ObjectVsBroadPhaseLayerFilterImpl : public JPH::ObjectVsBroadPhaseLayerFilter
-{
-public:
-    virtual bool ShouldCollide(JPH::ObjectLayer inLayer1, JPH::BroadPhaseLayer inLayer2) const override
-    {
-        switch (inLayer1)
-        {
-        case Layers::NON_MOVING:
-            return inLayer2 == JPH::BroadPhaseLayer(1); // Non moving only collides with moving
-        case Layers::MOVING:
-            return true; // Moving collides with everything
-        default:
-            JPH_ASSERT(false);
-            return false;
-        }
-    }
-};
-
-// Jolt object vs object layer filter
-class ObjectVsObjectLayerFilterImpl : public JPH::ObjectLayerPairFilter
-{
-public:
-    virtual bool ShouldCollide(JPH::ObjectLayer inLayer1, JPH::ObjectLayer inLayer2) const override
-    {
-        switch (inLayer1)
-        {
-        case Layers::NON_MOVING:
-            return inLayer2 == Layers::MOVING; // Non moving only collides with moving
-        case Layers::MOVING:
-            return true; // Moving collides with everything
-        default:
-            JPH_ASSERT(false);
-            return false;
-        }
-    }
-};
-
-// Jolt object layer filter for raycasting
-class ObjectLayerFilterImpl : public JPH::ObjectLayerFilter
-{
-public:
-    virtual bool ShouldCollide(JPH::ObjectLayer inLayer) const override
-    {
-        return inLayer == Layers::MOVING;
-    }
-};
-
-// Jolt broadphase layer filter for raycasting
-class BroadPhaseLayerFilterImpl : public JPH::BroadPhaseLayerFilter
-{
-public:
-    virtual bool ShouldCollide(JPH::BroadPhaseLayer inLayer) const override
-    {
-        return true;
-    }
-};
-
-
-void CreateBodies(JPH::BodyInterface &body_interface, std::vector<JPH::BodyID>& body_ids);
-
-void ResetSimulation(JPH::BodyInterface &body_interface, std::vector<JPH::BodyID>& body_ids)
-{
-    for (const auto& body_id : body_ids)
-    {
-        body_interface.RemoveBody(body_id);
-        body_interface.DestroyBody(body_id);
-    }
-    body_ids.clear();
-    CreateBodies(body_interface, body_ids);
-}
-
-
-void CreateBodies(JPH::BodyInterface &body_interface, std::vector<JPH::BodyID>& body_ids)
-{
-    JPH::BodyCreationSettings sphere_settings(new JPH::SphereShape(0.5f), JPH::Vec3(0.0f, 10.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, Layers::MOVING);
-    body_ids.push_back(body_interface.CreateAndAddBody(sphere_settings, JPH::EActivation::Activate));
-
-    JPH::BodyCreationSettings box_settings(new JPH::BoxShape(JPH::Vec3(0.5f, 0.5f, 0.5f)), JPH::Vec3(0.5f, 12.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, Layers::MOVING);
-    body_ids.push_back(body_interface.CreateAndAddBody(box_settings, JPH::EActivation::Activate));
-
-    for (int i = 0; i < 5; ++i)
-    {
-        JPH::BodyCreationSettings sphere_settings(new JPH::SphereShape(0.5f), JPH::Vec3(i * 1.5, 15.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Dynamic, Layers::MOVING);
-        body_ids.push_back(body_interface.CreateAndAddBody(sphere_settings, JPH::EActivation::Activate));
-    }
-}
-
-
-int main(void)
-{
-    // Raylib initialization
+int main() {
+    // 1. Initialization
     const int screenWidth = 1280;
     const int screenHeight = 720;
-    InitWindow(screenWidth, screenHeight, "Raylib Jolt Demo");
+
+    SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
+    InitWindow(screenWidth, screenHeight, "Mitsubishi RV-2SDB Simulation");
     SetTargetFPS(60);
 
-    // Jolt initialization
-    JPH::RegisterDefaultAllocator();
-    JPH::Factory::sInstance = new JPH::Factory();
-    JPH::RegisterTypes();
-    JPH::TempAllocatorImpl temp_allocator(10 * 1024 * 1024);
-    JPH::JobSystemThreadPool job_system(JPH::cMaxPhysicsJobs, JPH::cMaxPhysicsBarriers, std::thread::hardware_concurrency() - 1);
+    rlImGuiSetup(true);
 
-    // Physics settings
-    const JPH::uint cMaxBodies = 1024;
-    const JPH::uint cNumBodyMutexes = 0;
-    const JPH::uint cMaxBodyPairs = 1024;
-    const JPH::uint cMaxContactConstraints = 1024;
-
-    BPLayerInterfaceImpl broad_phase_layer_interface;
-    ObjectVsBroadPhaseLayerFilterImpl object_vs_broadphase_layer_filter;
-    ObjectVsObjectLayerFilterImpl object_vs_object_layer_filter;
-
-    JPH::PhysicsSystem physics_system;
-    physics_system.Init(cMaxBodies, cNumBodyMutexes, cMaxBodyPairs, cMaxContactConstraints,
-        broad_phase_layer_interface, object_vs_broadphase_layer_filter, object_vs_object_layer_filter);
-
-    JPH::BodyInterface &body_interface = physics_system.GetBodyInterface();
-
-    // Create floor
-    JPH::BodyCreationSettings floor_settings(new JPH::BoxShape(JPH::Vec3(100.0f, 1.0f, 100.0f)), JPH::Vec3(0.0f, -1.0f, 0.0f), JPH::Quat::sIdentity(), JPH::EMotionType::Static, Layers::NON_MOVING);
-    body_interface.CreateAndAddBody(floor_settings, JPH::EActivation::DontActivate);
-
-    // Create bodies
-    std::vector<JPH::BodyID> body_ids;
-    CreateBodies(body_interface, body_ids);
-
-
-    // Camera setup
-    Camera3D camera = {0};
-    camera.position = (Vector3){15.0f, 15.0f, 15.0f};
-    camera.target = (Vector3){0.0f, 5.0f, 0.0f};
-    camera.up = (Vector3){0.0f, 1.0f, 0.0f};
+    // 2. Camera Setup (Use FREE Camera for easier navigation)
+    Camera3D camera = { 0 };
+    camera.position = (Vector3){ 5.0f, 5.0f, 5.0f }; // Closer start
+    camera.target = (Vector3){ 0.0f, 1.0f, 0.0f };   // Look at robot center (approx)
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    // Mouse picking
-    JPH::BodyID picked_body_id;
-    float picked_body_dist = 0.0f;
+    // 3. Load Robot
+    RobotArm robot;
+    robot.Init("assets/Robot.glb");
 
+    RobotCommunication comms;
+    comms.Connect("127.0.0.1", 502);
 
-    // Main loop
-    while (!WindowShouldClose())
-    {
-        if (IsKeyPressed(KEY_R))
-        {
-            ResetSimulation(body_interface, body_ids);
+    // Control Variables
+    bool manualControl = true;
+    float modelScale = 10.0f; // Start BIG so we can see it
+    
+    // Disable Cursor so we can look around with mouse (press ESC to unlock)
+    DisableCursor(); 
+
+    // Main Loop
+    while (!WindowShouldClose()) {
+        float dt = GetFrameTime();
+        
+        // --- Input Handling ---
+        // Toggle Mouse Cursor with TAB to use UI
+        if (IsKeyPressed(KEY_TAB)) {
+            if (IsCursorHidden()) EnableCursor();
+            else DisableCursor();
         }
 
-        // Mouse picking
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON))
-        {
-            Ray ray = GetMouseRay(GetMousePosition(), camera);
-            JPH::RRayCast ray_cast(JPH::RVec3(ray.position.x, ray.position.y, ray.position.z), JPH::Vec3(ray.direction.x, ray.direction.y, ray.direction.z) * 1000.0f);
-            JPH::RayCastResult result;
-            
-            ObjectLayerFilterImpl object_layer_filter;
-            BroadPhaseLayerFilterImpl broad_phase_layer_filter;
-
-            if (physics_system.GetNarrowPhaseQuery().CastRay(ray_cast, result, broad_phase_layer_filter, object_layer_filter))
-            {
-                picked_body_id = result.mBodyID;
-                body_interface.ActivateBody(picked_body_id);
-                JPH::RVec3 pick_pos = ray_cast.mOrigin + result.mFraction * ray_cast.mDirection;
-                picked_body_dist = Vector3Length(Vector3Subtract(camera.position, Vector3{(float)pick_pos.GetX(),(float)pick_pos.GetY(),(float)pick_pos.GetZ()}));
-            }
+        // Camera Logic
+        if (IsCursorHidden()) {
+            UpdateCamera(&camera, CAMERA_FREE); // WASD to Move, Mouse to Look
         }
 
-        if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && !picked_body_id.IsInvalid())
-        {
-            Ray ray = GetMouseRay(GetMousePosition(), camera);
-            JPH::RVec3 new_pos = JPH::RVec3(ray.position.x, ray.position.y, ray.position.z) + JPH::Vec3(ray.direction.x, ray.direction.y, ray.direction.z) * picked_body_dist;
-            JPH::Vec3 force = (new_pos - body_interface.GetCenterOfMassPosition(picked_body_id)) * 500.0f;
-            body_interface.AddForce(picked_body_id, force);
-        }
+        // Robot Update
+        robot.Update(dt);
 
-        if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && !picked_body_id.IsInvalid())
-        {
-            picked_body_id = JPH::BodyID();
-        }
-
-
-        // Physics update
-        physics_system.Update(1.0f / 60.0f, 1, &temp_allocator, &job_system);
-
-        // Drawing
+        // --- Draw ---
         BeginDrawing();
-        ClearBackground(RAYWHITE);
+            ClearBackground({ 40, 40, 40, 255 }); // Dark Grey Background
 
-        BeginMode3D(camera);
+            BeginMode3D(camera);
+                // Draw Floor Grid
+                DrawGrid(20, 1.0f); 
+                
+                // Draw Robot (Pass the scale)
+                robot.Draw(modelScale);
+                
+                // Draw a red sphere at 0,0,0 to confirm where the center is
+                DrawSphere({0,0,0}, 0.1f, RED);
+            EndMode3D();
 
-        // Draw floor
-        DrawCube(Vector3{0.0f, -1.0f, 0.0f}, 200.0f, 2.0f, 200.0f, LIGHTGRAY);
+            // --- GUI ---
+            rlImGuiBegin();
 
-        // Draw bodies
-        for (const auto& body_id : body_ids)
-        {
-            JPH::Vec3 pos = body_interface.GetCenterOfMassPosition(body_id);
-            JPH::Quat rot = body_interface.GetRotation(body_id);
-            const JPH::Shape *shape = body_interface.GetShape(body_id);
+            // Instructions
+            ImGui::SetNextWindowPos(ImVec2(10, 10));
+            ImGui::Begin("Info", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize);
+            ImGui::Text("Controls:");
+            ImGui::Text("[TAB] to Toggle Mouse (Camera vs UI)");
+            ImGui::Text("[W,A,S,D] Move Camera");
+            ImGui::Text("[Mouse] Look Around");
+            ImGui::Text("[Shift] Move Fast");
+            ImGui::End();
 
+            // Controls
+            ImGui::Begin("Mitsubishi RV-2SDB Settings");
+            
+            ImGui::SeparatorText("Visuals");
+            ImGui::SliderFloat("Model Scale", &modelScale, 0.1f, 50.0f);
+            
+            ImGui::SeparatorText("Joints");
+            // Mitsubishi Limits
+            const float limits[6][2] = {
+                {-240, 240}, {-120, 120}, {0, 160}, 
+                {-200, 200}, {-120, 120}, {-360, 360}
+            };
 
-            if (shape->GetSubType() == JPH::EShapeSubType::Sphere)
-            {
-                DrawSphere(Vector3{(float)pos.GetX(), (float)pos.GetY(), (float)pos.GetZ()}, ((JPH::SphereShape*)shape)->GetRadius(), RED);
+            for (int i = 0; i < 6; i++) {
+                float angle = robot.GetJointAngle(i);
+                std::string label = "Joint " + std::to_string(i + 1);
+                if (ImGui::SliderFloat(label.c_str(), &angle, limits[i][0], limits[i][1])) {
+                    robot.SetJointAngle(i, angle);
+                }
             }
-            else if (shape->GetSubType() == JPH::EShapeSubType::Box)
-            {
-                JPH::Vec3 extent = ((JPH::BoxShape*)shape)->GetHalfExtent();
-                DrawCube(Vector3{(float)pos.GetX(), (float)pos.GetY(), (float)pos.GetZ()}, extent.GetX() * 2, extent.GetY() * 2, extent.GetZ() * 2, BLUE);
-            }
-        }
-        EndMode3D();
-        DrawText("Press 'R' to reset", 10, 30, 20, BLACK);
-        DrawText("Click and drag to move objects", 10, 50, 20, BLACK);
-        DrawFPS(10, 10);
 
+            ImGui::End();
+            rlImGuiEnd();
 
         EndDrawing();
     }
 
+    // Cleanup
+    robot.Unload();
+    comms.Disconnect();
+    rlImGuiShutdown();
     CloseWindow();
 
     return 0;

@@ -1,276 +1,73 @@
 #include "robot_communication.h"
 #include <iostream>
-#include <fstream>
 #include <chrono>
-#include <cstring>
 
 RobotCommunication::RobotCommunication() 
-    : connectionState(ConnectionState::DISCONNECTED),
-      simulationMode(SimulationMode::MANUAL),
-      running(false),
-      loggingEnabled(false),
-      serverPort(502),
-      updateRate(50) {
-    
-    currentJointAngles.fill(0.0f);
-    targetJointAngles.fill(0.0f);
+    : state(ConnectionState::DISCONNECTED), running(false), serverPort(502) {
+    currentJoints.fill(0.0f);
+    targetJoints.fill(0.0f);
 }
 
 RobotCommunication::~RobotCommunication() {
-    disconnect();
-    if (loggingEnabled) {
-        stopLogging();
-    }
+    Disconnect();
 }
 
-bool RobotCommunication::connect(const std::string& address, int port) {
-    if (isConnected()) {
-        disconnect();
-    }
+void RobotCommunication::Connect(const std::string& ip, int port) {
+    if (running) Disconnect();
     
-    serverAddress = address;
+    serverIP = ip;
     serverPort = port;
-    connectionState = ConnectionState::CONNECTING;
-    
-    if (connectionCallback) {
-        connectionCallback(connectionState);
-    }
-    
     running = true;
-    commThread = std::thread(&RobotCommunication::communicationThread, this);
+    state = ConnectionState::CONNECTING;
     
-    return true;
+    commThread = std::thread(&RobotCommunication::CommunicationLoop, this);
 }
 
-void RobotCommunication::disconnect() {
+void RobotCommunication::Disconnect() {
     running = false;
     if (commThread.joinable()) {
         commThread.join();
     }
-    connectionState = ConnectionState::DISCONNECTED;
-    
-    if (connectionCallback) {
-        connectionCallback(connectionState);
-    }
+    state = ConnectionState::DISCONNECTED;
 }
 
-bool RobotCommunication::isConnected() const {
-    return connectionState == ConnectionState::CONNECTED;
+bool RobotCommunication::IsConnected() const {
+    return state == ConnectionState::CONNECTED;
 }
 
-RobotCommunication::ConnectionState RobotCommunication::getConnectionState() const {
-    return connectionState;
-}
-
-void RobotCommunication::setSimulationMode(SimulationMode mode) {
-    simulationMode = mode;
-}
-
-RobotCommunication::SimulationMode RobotCommunication::getSimulationMode() const {
-    return simulationMode;
-}
-
-bool RobotCommunication::sendJointAngles(const std::array<float, 6>& angles) {
+std::array<float, 6> RobotCommunication::ReadJointAngles() {
     std::lock_guard<std::mutex> lock(dataMutex);
-    targetJointAngles = angles;
-    return true;
+    return currentJoints;
 }
 
-std::array<float, 6> RobotCommunication::readJointAngles() {
+void RobotCommunication::SendJointAngles(const std::array<float, 6>& angles) {
     std::lock_guard<std::mutex> lock(dataMutex);
-    return currentJointAngles;
+    targetJoints = angles;
 }
 
-bool RobotCommunication::sendCommand(const std::string& command) {
-    std::cout << "Sending command: " << command << std::endl;
-    return true;
-}
+void RobotCommunication::CommunicationLoop() {
+    // Simulate connection delay
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    state = ConnectionState::CONNECTED;
+    std::cout << "COMM: Connected to " << serverIP << ":" << serverPort << std::endl;
 
-std::string RobotCommunication::readResponse() {
-    return "OK";
-}
-
-void RobotCommunication::setConnectionCallback(std::function<void(ConnectionState)> callback) {
-    connectionCallback = callback;
-}
-
-void RobotCommunication::setDataReceivedCallback(std::function<void(const std::array<float, 6>&)> callback) {
-    dataReceivedCallback = callback;
-}
-
-void RobotCommunication::setErrorCallback(std::function<void(const std::string&)> callback) {
-    errorCallback = callback;
-}
-
-void RobotCommunication::startLogging(const std::string& filename) {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    
-    logFile.open(filename, std::ios::out);
-    if (logFile.is_open()) {
-        logFilename = filename;
-        loggingEnabled = true;
-        logFile << "timestamp,j1,j2,j3,j4,j5,j6,mode\n";
-    } else {
-        if (errorCallback) {
-            errorCallback("Failed to open log file: " + filename);
-        }
-    }
-}
-
-void RobotCommunication::stopLogging() {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    
-    if (logFile.is_open()) {
-        logFile.close();
-    }
-    loggingEnabled = false;
-}
-
-bool RobotCommunication::isLogging() const {
-    return loggingEnabled;
-}
-
-bool RobotCommunication::exportTrajectory(const std::string& filename, const std::vector<std::array<float, 6>>& trajectory) {
-    std::ofstream file(filename, std::ios::out);
-    if (!file.is_open()) {
-        return false;
-    }
-    
-    file << "j1,j2,j3,j4,j5,j6\n";
-    
-    for (const auto& angles : trajectory) {
-        for (size_t i = 0; i < angles.size(); i++) {
-            file << angles[i];
-            if (i < angles.size() - 1) {
-                file << ",";
+    while (running) {
+        {
+            std::lock_guard<std::mutex> lock(dataMutex);
+            // In a real scenario, this would read/write to a TCP socket
+            // For simulation, we just sync current to target with smoothing
+            for(int i=0; i<6; i++) {
+                float diff = targetJoints[i] - currentJoints[i];
+                if (std::abs(diff) > 0.1f) {
+                    currentJoints[i] += diff * 0.1f; // Simple smoothing
+                } else {
+                    currentJoints[i] = targetJoints[i];
+                }
             }
         }
-        file << "\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(20)); // 50Hz
     }
     
-    file.close();
-    return true;
-}
-
-bool RobotCommunication::importTrajectory(const std::string& filename, std::vector<std::array<float, 6>>& trajectory) {
-    std::ifstream file(filename, std::ios::in);
-    if (!file.is_open()) {
-        return false;
-    }
-    
-    trajectory.clear();
-    std::string line;
-    
-    std::getline(file, line);
-    
-    while (std::getline(file, line)) {
-        std::array<float, 6> angles;
-        size_t pos = 0;
-        size_t lastPos = 0;
-        int index = 0;
-        
-        while ((pos = line.find(',', lastPos)) != std::string::npos && index < 6) {
-            angles[index++] = std::stof(line.substr(lastPos, pos - lastPos));
-            lastPos = pos + 1;
-        }
-        
-        if (index < 6) {
-            angles[index] = std::stof(line.substr(lastPos));
-        }
-        
-        trajectory.push_back(angles);
-    }
-    
-    file.close();
-    return true;
-}
-
-void RobotCommunication::communicationThread() {
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    
-    if (establishConnection()) {
-        connectionState = ConnectionState::CONNECTED;
-        if (connectionCallback) {
-            connectionCallback(connectionState);
-        }
-    } else {
-        connectionState = ConnectionState::ERROR;
-        if (connectionCallback) {
-            connectionCallback(connectionState);
-        }
-        if (errorCallback) {
-            errorCallback("Failed to establish connection");
-        }
-        return;
-    }
-    
-    auto lastUpdate = std::chrono::steady_clock::now();
-    
-    while (running) {
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastUpdate);
-        
-        if (elapsed.count() >= 1000 / updateRate) {
-            processIncomingData();
-            lastUpdate = now;
-        }
-        
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
-    
-    connectionState = ConnectionState::DISCONNECTED;
-    if (connectionCallback) {
-        connectionCallback(connectionState);
-    }
-}
-
-bool RobotCommunication::establishConnection() {
-    std::cout << "Establishing connection to " << serverAddress << ":" << serverPort << std::endl;
-    return true;
-}
-
-void RobotCommunication::processIncomingData() {
-    std::lock_guard<std::mutex> lock(dataMutex);
-    
-    for (int i = 0; i < 6; i++) {
-        float diff = targetJointAngles[i] - currentJointAngles[i];
-        float maxChange = 0.5f;
-        
-        if (std::abs(diff) > maxChange) {
-            currentJointAngles[i] += (diff > 0 ? maxChange : -maxChange);
-        } else {
-            currentJointAngles[i] = targetJointAngles[i];
-        }
-    }
-    
-    if (loggingEnabled && logFile.is_open()) {
-        logData(currentJointAngles);
-    }
-    
-    if (dataReceivedCallback) {
-        dataReceivedCallback(currentJointAngles);
-    }
-}
-
-void RobotCommunication::logData(const std::array<float, 6>& angles) {
-    auto now = std::chrono::system_clock::now();
-    auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch()).count();
-    
-    logFile << timestamp << ",";
-    for (size_t i = 0; i < angles.size(); i++) {
-        logFile << angles[i];
-        if (i < angles.size() - 1) {
-            logFile << ",";
-        }
-    }
-    
-    switch (simulationMode) {
-        case SimulationMode::MANUAL: logFile << ",MANUAL"; break;
-        case SimulationMode::PLAYBACK: logFile << ",PLAYBACK"; break;
-        case SimulationMode::REAL_TIME_SYNC: logFile << ",REAL_TIME_SYNC"; break;
-        case SimulationMode::SIMULATION_ONLY: logFile << ",SIMULATION_ONLY"; break;
-    }
-    
-    logFile << "\n";
+    state = ConnectionState::DISCONNECTED;
+    std::cout << "COMM: Disconnected." << std::endl;
 }
