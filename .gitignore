@@ -9,3 +9,9 @@ compile_commands.json
 CTestTestfile.cmake
 _deps
 CMakeUserPresets.json
+CPackConfig.cmake
+CPackSourceConfig.cmake
+imgui.ini
+libimgui.a
+raylib-jolt-demo
+Robot_yuki

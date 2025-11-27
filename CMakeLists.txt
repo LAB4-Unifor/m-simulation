@@ -56,7 +56,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(rlImGui)
 
 # --- 5. exe ---
-add_executable(Robot_yuki 
+add_executable(Yuki 
     src/main.cpp 
     src/robot_arm.cpp 
     src/robot_communication.cpp
@@ -64,7 +64,7 @@ add_executable(Robot_yuki
 )
 
 # Diretórios de Include
-target_include_directories(Robot_yuki PUBLIC 
+target_include_directories(Yuki PUBLIC 
     src 
     ${raylib_SOURCE_DIR}/src
     ${joltphysics_SOURCE_DIR} 
@@ -72,7 +72,7 @@ target_include_directories(Robot_yuki PUBLIC
 )
 
 # Linkagem
-target_link_libraries(Robot_yuki PRIVATE 
+target_link_libraries(Yuki PRIVATE 
     raylib 
     imgui
     Jolt 
