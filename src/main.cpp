@@ -1,138 +1,101 @@
 #include "raylib.h"
 #include "rlImGui.h"
-#include "imgui.h"
-#include "robot_arm.h"
+#include "robot_controller.h"
+#include "robot_model.h"
 #include "robot_communication.h"
-#include <string>
+#include "gui_manager.h"
 
 int main() {
+    // 1. Initialization
     const int screenWidth = 1280;
     const int screenHeight = 720;
 
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_VSYNC_HINT);
-    InitWindow(screenWidth, screenHeight, "Mitsubishi RV-2SDB Simulation");
+    InitWindow(screenWidth, screenHeight, "Mitsubishi RV-2SDB Simulation (Modular)");
     SetTargetFPS(60);
 
     rlImGuiSetup(true);
 
+    // 2. Camera Setup
     Camera3D camera = { 0 };
-    camera.position = (Vector3){ 8.0f, 8.0f, 8.0f };
-    camera.target = (Vector3){ 0.0f, 2.0f, 0.0f };
+    camera.position = (Vector3){ 6.0f, 6.0f, 6.0f };
+    camera.target = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    RobotArm robot;
-    robot.Init("assets/Robot.glb");
+    // 3. Instantiate Components
+    RobotController controller;   // Handles logic, interpolation, and limits
+    RobotModel model;             // Handles drawing (procedural or 3D mesh)
+    RobotCommunication comms;     // Handles Socket Server
+    GuiManager gui;               // Handles ImGui Interface
 
-    RobotCommunication comms;
-    comms.Connect("127.0.0.1", 502);
+    // 4. Component Setup
+    model.Init("assets/Robot.glb"); // Try to load GLB, falls back to geometric if missing
+    
+    // Starts the socket server on port 10001 (IP argument is ignored in provided impl, but required by signature)
+    comms.Connect("0.0.0.0", 10001); 
 
-    // Controle da GUI
-    bool manualControl = true;
-    float modelScale = 2.0f; // Ajustado para o modo procedural
-    bool showEnvelope = false;
+    DisableCursor(); // Start with camera control active
 
-    DisableCursor(); 
-
+    // 5. Main Loop
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
-        
+
+        // --- Input Handling ---
         if (IsKeyPressed(KEY_TAB)) {
             if (IsCursorHidden()) EnableCursor();
             else DisableCursor();
         }
 
-        if (IsCursorHidden()) UpdateCamera(&camera, CAMERA_FREE);
+        // Only move camera if cursor is locked
+        if (IsCursorHidden()) {
+            UpdateCamera(&camera, CAMERA_FREE);
+        }
 
-        // Atualização Lógica
-        robot.Update(dt);
+        // --- Logic Update ---
+        controller.Update(dt);
 
+        // Sync: Send current angles to the network thread so clients using "GETPOS" see real data
+        comms.SendJointAngles(controller.GetAllAngles());
+
+        // --- Drawing ---
         BeginDrawing();
-            ClearBackground({ 30, 30, 30, 255 });
+            
+            // Convert GUI float color (0.0-1.0) to Raylib Color (0-255)
+            Color clearCol = { 
+                (unsigned char)(gui.bgColor[0] * 255), 
+                (unsigned char)(gui.bgColor[1] * 255), 
+                (unsigned char)(gui.bgColor[2] * 255), 
+                255 
+            };
+            ClearBackground(clearCol);
 
             BeginMode3D(camera);
-                DrawGrid(20, 1.0f); 
+                DrawGrid(20, 1.0f);
                 
-                // Desenha o Robô
-                robot.Draw(modelScale);
-                
-                // Desenha o Envelope de Trabalho (Transparente)
-                if (showEnvelope) {
-                    robot.DrawWorkEnvelope(modelScale);
+                // Draw the Robot
+                // We get angles from Controller and settings from GUI Manager
+                model.Draw(controller.GetAllAngles(), gui.modelScale, gui.showWireframe);
+
+                // Draw Envelope if enabled in GUI
+                if (gui.showEnvelope) {
+                    // Simple visualization of reach (approximate sphere)
+                    DrawSphereWires({0, 1.0f, 0}, 2.5f * gui.modelScale, 16, 16, {255, 255, 255, 50});
                 }
             EndMode3D();
 
+            // --- GUI Overlay ---
             rlImGuiBegin();
-
-            // Janela de Controle Principal
-            ImGui::Begin("Mitsubishi Controller", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-            
-            ImGui::SeparatorText("Simulation Mode");
-            
-            // Botões de Presets
-            if (ImGui::Button("HOME")) robot.GoToHome(); 
-            ImGui::SameLine();
-            if (ImGui::Button("ZERO")) robot.GoToZero();
-            ImGui::SameLine();
-            if (ImGui::Button("READY")) robot.GoToReady();
-
-            ImGui::Spacing();
-
-            // Botão de Demo
-            if (robot.IsDemoActive()) {
-                if (ImGui::Button("STOP DEMO", ImVec2(-1, 0))) {
-                    robot.StopDemoSequence();
-                    manualControl = true;
-                }
-            } else {
-                if (ImGui::Button("RUN TEST DEMO", ImVec2(-1, 0))) {
-                    robot.StartDemoSequence();
-                    manualControl = false; // Demo assume o controle
-                }
-            }
-
-            ImGui::SeparatorText("Visual Helpers");
-            ImGui::Checkbox("Show Work Envelope", &showEnvelope);
-            ImGui::SliderFloat("Scale", &modelScale, 0.5f, 5.0f);
-
-            ImGui::SeparatorText("Joint Control (Manual)");
-            
-            // Desabilita sliders se a demo estiver rodando
-            if (robot.IsDemoActive()) ImGui::BeginDisabled();
-
-            const float limits[6][2] = {
-                {-240, 240}, {-120, 120}, {0, 160}, 
-                {-200, 200}, {-120, 120}, {-360, 360}
-            };
-
-            for (int i = 0; i < 6; i++) {
-                // Pegamos o Target para o slider não pular enquanto o robô se move
-                float angle = robot.GetJointAngle(i); 
-                std::string label = "J" + std::to_string(i + 1);
-                
-                if (ImGui::SliderFloat(label.c_str(), &angle, limits[i][0], limits[i][1])) {
-                    robot.SetJointAngle(i, angle);
-                }
-            }
-
-            if (robot.IsDemoActive()) ImGui::EndDisabled();
-
-            ImGui::End();
-            
-            // Overlay de Informação
-            ImGui::SetNextWindowPos(ImVec2(10, 10));
-            ImGui::Begin("Status", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoBackground);
-            ImGui::TextColored(ImVec4(0,1,0,1), "FPS: %d", GetFPS());
-            ImGui::Text("Camera: [TAB] to unlock cursor");
-            ImGui::End();
-
+                // Pass dependencies to the GUI Manager
+                gui.Draw(controller, comms);
             rlImGuiEnd();
 
         EndDrawing();
     }
 
-    robot.Unload();
+    // 6. Cleanup
+    model.Unload();
     comms.Disconnect();
     rlImGuiShutdown();
     CloseWindow();

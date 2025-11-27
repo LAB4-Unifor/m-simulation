@@ -15,22 +15,20 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(raylib)
 
 # --- 2. Jolt Physics ---
-# Opções para desativar testes e exemplos pesados
 set(USE_SSE4_2 ON CACHE BOOL "Use SSE4.2" FORCE)
 set(TARGET_UNIT_TESTS OFF CACHE BOOL "Build Unit Tests" FORCE)
 set(TARGET_HELLO_WORLD OFF CACHE BOOL "Build Hello World" FORCE)
-set(TARGET_PERFORMANCE_TEST OFF CACHE BOOL "Build Performance Test" FORCE)
 set(CROSS_PLATFORM_DETERMINISTIC OFF CACHE BOOL "Deterministic" FORCE)
 
 FetchContent_Declare(
   JoltPhysics
   GIT_REPOSITORY https://github.com/jrouwe/JoltPhysics.git
   GIT_TAG v5.0.0
-  SOURCE_SUBDIR Build 
+  SOURCE_SUBDIR Build
 )
 FetchContent_MakeAvailable(JoltPhysics)
 
-# --- 3. Dear ImGui ---
+# --- 3. Dear ImGui (Compilação Manual) ---
 FetchContent_Declare(
   imgui
   GIT_REPOSITORY https://github.com/ocornut/imgui.git
@@ -47,36 +45,52 @@ add_library(imgui STATIC
 )
 target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR})
 
-# --- 4. rlImGui ---
+# --- 4. rlImGui (Compilação Manual - A CORREÇÃO ESTÁ AQUI) ---
 FetchContent_Declare(
   rlImGui
   GIT_REPOSITORY https://github.com/raylib-extras/rlImGui.git
   GIT_TAG main
 )
-FetchContent_MakeAvailable(rlImGui)
+# Apenas baixa os arquivos, não tenta configurar automaticamente
+FetchContent_MakeAvailable(rlImGui) 
 
-# --- 5. exe ---
+# Criamos a biblioteca nós mesmos para garantir que ela exista
+add_library(rlImGui STATIC "${rlimgui_SOURCE_DIR}/rlImGui.cpp")
+
+# rlImGui precisa conhecer os headers do ImGui e Raylib
+target_link_libraries(rlImGui PUBLIC raylib imgui)
+target_include_directories(rlImGui PUBLIC "${rlimgui_SOURCE_DIR}")
+
+# --- 5. Executable ---
 add_executable(Yuki 
     src/main.cpp 
-    src/robot_arm.cpp 
+    src/robot_model.cpp       
+    src/robot_controller.cpp  
+    src/gui_manager.cpp       
     src/robot_communication.cpp
-    ${rlimgui_SOURCE_DIR}/rlImGui.cpp 
 )
 
-# Diretórios de Include
 target_include_directories(Yuki PUBLIC 
     src 
     ${raylib_SOURCE_DIR}/src
-    ${joltphysics_SOURCE_DIR} 
+    ${imgui_SOURCE_DIR}
     ${rlimgui_SOURCE_DIR}
+    ${joltphysics_SOURCE_DIR}
 )
 
-# Linkagem
+target_compile_definitions(Yuki PRIVATE JPH_PROFILE_ENABLED JPH_DEBUG_RENDERER)
+
 target_link_libraries(Yuki PRIVATE 
-    raylib 
+    rlImGui 
     imgui
-    Jolt 
+    raylib 
+    Jolt
 )
 
-# Copiar Assets
-file(COPY ${CMAKE_SOURCE_DIR}/assets DESTINATION ${CMAKE_BINARY_DIR})
+# Copia assets
+add_custom_command(TARGET Yuki POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/assets
+    ${CMAKE_BINARY_DIR}/assets
+    COMMENT "Copying assets..."
+)

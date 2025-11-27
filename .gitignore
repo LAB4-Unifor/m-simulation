@@ -1,17 +1,51 @@
+# --- Build Directories (Padrão Recomendado) ---
+build/
+bin/
+out/
+_deps/
+
+# --- CMake Generated Files (Caso faça build na raiz) ---
 CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Testing
+CMakeFiles/
+CMakeScripts/
+Testing/
 Makefile
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
-_deps
 CMakeUserPresets.json
 CPackConfig.cmake
 CPackSourceConfig.cmake
+*.cmake
+!CMakeLists.txt
+!src/*.cmake
+
+# --- C++ Binaries & Objects ---
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.pdb
+*.o
+*.obj
+
+# --- IDEs & Editors ---
+.vscode/
+.idea/
+.vs/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Project Specific ---
 imgui.ini
-libimgui.a
-raylib-jolt-demo
-Robot_yuki
+Yuki
